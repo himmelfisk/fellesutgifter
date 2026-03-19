@@ -88,6 +88,7 @@ function initGoogleSignIn() {
 }
 
 window.addEventListener('load', function() {
+    document.getElementById('inp-year').value = new Date().getFullYear();
     setTimeout(initGoogleSignIn, 500);
 });
 
@@ -141,7 +142,7 @@ function ghWriteFile(path, data) {
     .then(function(res) {
         if (res.status === 401) {
             return res.json().then(function(e) {
-                console.error('Worker 401:', e);
+                if (window.__debugWorker) console.error('Worker 401:', e);
                 throw new Error('Innlogging utl\u00f8pt. Logg inn p\u00e5 nytt.');
             });
         }
@@ -285,7 +286,7 @@ function saveYearData(year) {
 
 function saveAddressesIndex() {
     return ghWriteFile(ADDRESSES_FILE, allAddresses)
-    .catch(function(err) { console.error('Feil ved lagring av adresseindeks:', err); });
+    .catch(function(err) { if (window.__debugWorker) console.error('Feil ved lagring av adresseindeks:', err); });
 }
 
 /* ================================================
@@ -787,12 +788,12 @@ function saveYear() {
     .then(function() { setSyncStatus('ok', 'Lagret'); })
     .catch(function(err) {
         setSyncStatus('err', 'Feil: ' + (err.message || err));
-        console.error('Save error:', err);
+        if (window.__debugWorker) console.error('Save error:', err);
     });
 }
 
 function clearForm() {
-    document.getElementById('inp-year').value = '';
+    document.getElementById('inp-year').value = new Date().getFullYear();
     formCosts = [];
     renderCostsForm();
 }
