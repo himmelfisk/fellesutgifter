@@ -2,20 +2,12 @@
    KONFIGURASJON
    ================================================ */
 var GOOGLE_CLIENT_ID = '10152340554-g0bdlarlbf8tr4ldn31foq79uh0feqn8.apps.googleusercontent.com';
-
 var GITHUB_REPO = 'himmelfisk/fellesutgifter';
-var GITHUB_DATA_FILE = 'data.json';
+var GITHUB_DATA_DIR = 'data';
+var ADDRESSES_FILE = 'data/addresses.json';
 
 var NUM_ADMIN_EMAILS = 5;
-
 var NUM_EXTRA_ROWS = 10;
-
-var DEFAULT_TENANTS = [
-    { code: 'K0101', defaultName: 'Kenneth', pct: 22.19 },
-    { code: 'H0101', defaultName: 'Ole',     pct: 28.64 },
-    { code: 'H0102', defaultName: 'Theodor', pct: 27.76 },
-    { code: 'L0101', defaultName: 'Lis',     pct: 21.41 }
-];
 
 var COST_FIELDS = [
     { key: 'if_cost',    label: 'IF (forsikring)' },
@@ -24,7 +16,6 @@ var COST_FIELDS = [
     { key: 'uforutsett', label: 'Uforutsett' }
 ];
 
-var STORAGE_KEY = 'fellesutgifter_data';
 var TOKEN_KEY = 'fellesutgifter_gh_token';
 
 /* ================================================
@@ -33,8 +24,16 @@ var TOKEN_KEY = 'fellesutgifter_gh_token';
 var currentUser = null;
 var isAdmin = false;
 var activeTab = null;
-var ghFileSha = null;
-var appData = {};
+var activeAddressId = null;
+
+// GitHub SHAs per file
+var fileShas = {};
+
+// All known addresses: [{id, name}]
+var allAddresses = [];
+
+// Current address data: { _config: {admins, units}, "2026": {...}, ... }
+var addressData = {};
 
 /* ================================================
    AUTHENTICATION
@@ -52,12 +51,10 @@ function handleCredentialResponse(response) {
 
 function loginAs(email, name) {
     currentUser = { email: email.toLowerCase().trim(), name: name || email };
-
     document.getElementById('login-overlay').style.display = 'none';
     document.getElementById('main-content').style.display = 'block';
     document.getElementById('user-info').textContent = currentUser.name;
-
-    loadAllData();
+    loadAddresses();
 }
 
 function devLogin() {
@@ -70,6 +67,9 @@ function devLogin() {
 function logout() {
     currentUser = null;
     isAdmin = false;
+    activeAddressId = null;
+    addressData = {};
+    allAddresses = [];
     document.getElementById('login-overlay').style.display = 'flex';
     document.getElementById('main-content').style.display = 'none';
     document.getElementById('form-card').style.display = 'none';
@@ -102,7 +102,7 @@ window.addEventListener('load', function() {
 });
 
 /* ================================================
-   EXTRA COST ROWS
+   DYNAMIC FORM BUILDERS
    ================================================ */
 function buildExtraCostRows() {
     var tbody = document.getElementById('extra-costs-body');
@@ -127,8 +127,70 @@ function buildAdminEmailRows() {
     container.innerHTML = html;
 }
 
+function renderUnitsTable() {
+    var tbody = document.getElementById('units-body');
+    var units = getUnits();
+    var html = '';
+    for (var i = 0; i < units.length; i++) {
+        var u = units[i];
+        html += '<tr>'
+            + '<td><input type="text" class="unit-code" data-idx="' + i + '" value="' + escapeAttr(u.code) + '" placeholder="Kode"></td>'
+            + '<td><input type="text" class="unit-name" data-idx="' + i + '" value="' + escapeAttr(u.name) + '" placeholder="Navn"></td>'
+            + '<td><input type="number" class="unit-pct" data-idx="' + i + '" value="' + u.pct + '" step="0.01" min="0" max="100"></td>'
+            + '<td><input type="email" class="unit-email" data-idx="' + i + '" value="' + escapeAttr(u.email || '') + '" placeholder="e-post"></td>'
+            + '<td><button class="btn-remove" onclick="removeUnit(' + i + ')" title="Fjern">&times;</button></td>'
+            + '</tr>';
+    }
+    tbody.innerHTML = html;
+}
+
+function addUnit() {
+    var units = getUnits();
+    units.push({ code: '', name: '', pct: 0, email: '' });
+    setUnitsInConfig(units);
+    renderUnitsTable();
+}
+
+function removeUnit(idx) {
+    var units = getUnits();
+    if (units.length <= 1) {
+        alert('Du må ha minst én enhet.');
+        return;
+    }
+    units.splice(idx, 1);
+    setUnitsInConfig(units);
+    renderUnitsTable();
+}
+
+function collectUnitsFromForm() {
+    var rows = document.querySelectorAll('#units-body tr');
+    var units = [];
+    for (var i = 0; i < rows.length; i++) {
+        var code = rows[i].querySelector('.unit-code').value.trim();
+        var name = rows[i].querySelector('.unit-name').value.trim();
+        var pct = parseFloat(rows[i].querySelector('.unit-pct').value) || 0;
+        var email = rows[i].querySelector('.unit-email').value.trim().toLowerCase();
+        if (code || name) {
+            units.push({ code: code, name: name, pct: pct, email: email || '' });
+        }
+    }
+    return units;
+}
+
+function getUnits() {
+    if (addressData._config && addressData._config.units) {
+        return addressData._config.units.slice();
+    }
+    return [];
+}
+
+function setUnitsInConfig(units) {
+    if (!addressData._config) addressData._config = {};
+    addressData._config.units = units;
+}
+
 /* ================================================
-   GITHUB DATA — Read & Write data.json
+   GITHUB API
    ================================================ */
 function setSyncStatus(type, text) {
     var el = document.getElementById('sync-status');
@@ -143,10 +205,10 @@ function getGitHubToken() {
 function promptForToken() {
     var token = prompt(
         'For å lagre data til GitHub trenger du en Personal Access Token.\n\n'
-        + '1. Gå til github.com → Settings → Developer Settings → Personal Access Tokens (classic)\n'
+        + '1. Gå til github.com \u2192 Settings \u2192 Developer Settings \u2192 Personal Access Tokens (classic)\n'
         + '2. Opprett en token med "repo" scope\n'
         + '3. Lim inn tokenet her:\n\n'
-        + '(Tokenet lagres kun i denne nettleserøkten og forsvinner når du lukker fanen.)'
+        + '(Tokenet lagres kun i denne nettleser\u00f8kten og forsvinner n\u00e5r du lukker fanen.)'
     );
     if (token) {
         sessionStorage.setItem(TOKEN_KEY, token.trim());
@@ -154,30 +216,25 @@ function promptForToken() {
     return token ? token.trim() : '';
 }
 
-function fetchGitHubData() {
-    return fetch('https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + GITHUB_DATA_FILE, {
+function ghReadFile(path) {
+    return fetch('https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + path, {
         headers: { 'Accept': 'application/vnd.github.v3+json' },
         cache: 'no-store'
     })
     .then(function(res) {
-        if (res.status === 404) {
-            ghFileSha = null;
-            return {};
-        }
+        if (res.status === 404) return null;
         if (!res.ok) throw new Error('GitHub read failed: ' + res.status);
         return res.json();
     })
     .then(function(file) {
-        if (file.sha) {
-            ghFileSha = file.sha;
-            var content = atob(file.content.replace(/\n/g, ''));
-            return JSON.parse(content);
-        }
-        return {};
+        if (!file) return null;
+        fileShas[path] = file.sha;
+        var content = atob(file.content.replace(/\n/g, ''));
+        return JSON.parse(content);
     });
 }
 
-function writeGitHubData(data) {
+function ghWriteFile(path, data) {
     var token = getGitHubToken();
     if (!token) {
         token = promptForToken();
@@ -186,19 +243,11 @@ function writeGitHubData(data) {
             return Promise.reject('no token');
         }
     }
-
     var content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
-    var body = {
-        message: 'Oppdater data ' + new Date().toISOString(),
-        content: content
-    };
-    if (ghFileSha) {
-        body.sha = ghFileSha;
-    }
+    var body = { message: 'Oppdater ' + path + ' ' + new Date().toISOString(), content: content };
+    if (fileShas[path]) body.sha = fileShas[path];
 
-    setSyncStatus('loading', 'Lagrer...');
-
-    return fetch('https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + GITHUB_DATA_FILE, {
+    return fetch('https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + path, {
         method: 'PUT',
         headers: {
             'Accept': 'application/vnd.github.v3+json',
@@ -210,75 +259,136 @@ function writeGitHubData(data) {
     .then(function(res) {
         if (res.status === 401 || res.status === 403) {
             sessionStorage.removeItem(TOKEN_KEY);
-            throw new Error('Ugyldig token. Prøv igjen.');
+            throw new Error('Ugyldig token.');
         }
         if (res.status === 409) {
-            return fetchGitHubData().then(function() {
-                return writeGitHubData(data);
-            });
+            return ghReadFile(path).then(function() { return ghWriteFile(path, data); });
         }
         if (!res.ok) throw new Error('GitHub write failed: ' + res.status);
         return res.json();
     })
     .then(function(result) {
-        if (result.content) {
-            ghFileSha = result.content.sha;
-        }
-        setSyncStatus('ok', 'Lagret til GitHub');
-    })
-    .catch(function(err) {
-        setSyncStatus('err', 'Feil: ' + err.message);
-        throw err;
+        if (result.content) fileShas[path] = result.content.sha;
     });
 }
 
 /* ================================================
-   DATA MANAGEMENT
+   ADDRESS MANAGEMENT
    ================================================ */
-function loadAllData() {
-    setSyncStatus('loading', 'Henter data...');
+function generateId() {
+    var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    var id = '';
+    for (var i = 0; i < 8; i++) id += chars.charAt(Math.floor(Math.random() * chars.length));
+    return id;
+}
 
-    fetchGitHubData()
-    .then(function(ghData) {
-        var local = {};
-        try { local = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) {}
-        appData = Object.assign({}, local, ghData);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+function addressFilePath(id) {
+    return GITHUB_DATA_DIR + '/' + id + '.json';
+}
+
+function loadAddresses() {
+    setSyncStatus('loading', 'Henter adresser...');
+    ghReadFile(ADDRESSES_FILE)
+    .then(function(data) {
+        allAddresses = data || [];
+        setSyncStatus('ok', 'Synkronisert');
+        afterAddressesLoaded();
+    })
+    .catch(function() {
+        allAddresses = [];
+        setSyncStatus('err', 'Offline-modus');
+        afterAddressesLoaded();
+    });
+}
+
+function afterAddressesLoaded() {
+    if (allAddresses.length === 0) {
+        // No addresses yet — everyone can create
+        isAdmin = true;
+        activeAddressId = null;
+        addressData = {};
+        updateUI();
+        render();
+        return;
+    }
+
+    // Find addresses this user is admin for, or is a unit member of
+    var adminAddresses = [];
+    var memberAddresses = [];
+
+    // We need to load each address to check membership
+    // First, auto-select: if only 1, load it. If multiple, show picker.
+    // For now, load the first one (or saved preference)
+    var savedId = sessionStorage.getItem('fellesutgifter_active_addr');
+    if (savedId && allAddresses.some(function(a) { return a.id === savedId; })) {
+        selectAddress(savedId);
+    } else {
+        selectAddress(allAddresses[0].id);
+    }
+}
+
+function selectAddress(id) {
+    activeAddressId = id;
+    sessionStorage.setItem('fellesutgifter_active_addr', id);
+    activeTab = null;
+    loadAddressData(id);
+}
+
+function loadAddressData(id) {
+    setSyncStatus('loading', 'Henter data...');
+    ghReadFile(addressFilePath(id))
+    .then(function(data) {
+        addressData = data || {};
         setSyncStatus('ok', 'Synkronisert');
         updateAdminState();
+        updateUI();
         render();
     })
     .catch(function() {
-        try { appData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { appData = {}; }
+        addressData = {};
         setSyncStatus('err', 'Offline-modus');
         updateAdminState();
+        updateUI();
         render();
     });
 }
 
-function saveData(data) {
-    appData = data;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+function saveAddressData() {
+    if (!activeAddressId) return Promise.reject('no address');
+    setSyncStatus('loading', 'Lagrer...');
+    return ghWriteFile(addressFilePath(activeAddressId), addressData)
+    .then(function() { setSyncStatus('ok', 'Lagret'); })
+    .catch(function(err) {
+        setSyncStatus('err', 'Feil: ' + (err.message || err));
+        throw err;
+    });
 }
 
+function saveAddressesIndex() {
+    return ghWriteFile(ADDRESSES_FILE, allAddresses)
+    .catch(function(err) { console.error('Feil ved lagring av adresseindeks:', err); });
+}
+
+/* ================================================
+   UI STATE
+   ================================================ */
 function updateAdminState() {
     if (!currentUser) return;
-
-    var config = appData._config;
+    var config = addressData._config;
     if (!config || !config.admins || config.admins.length === 0) {
         isAdmin = true;
     } else {
-        isAdmin = false;
-        for (var i = 0; i < config.admins.length; i++) {
-            if (config.admins[i] === currentUser.email) {
-                isAdmin = true;
-                break;
-            }
-        }
+        isAdmin = config.admins.indexOf(currentUser.email) !== -1;
     }
+}
 
+function updateUI() {
     var adminBtn = document.getElementById('admin-btn');
-    if (isAdmin) {
+    var addrEl = document.getElementById('address-display');
+    var pickerEl = document.getElementById('address-picker');
+
+    // Admin button
+    if (isAdmin || allAddresses.length === 0) {
         adminBtn.style.display = 'inline-block';
         adminBtn.className = 'btn-admin';
     } else {
@@ -286,13 +396,29 @@ function updateAdminState() {
         document.getElementById('form-card').style.display = 'none';
     }
 
-    var addrEl = document.getElementById('address-display');
+    // Address display
+    var config = addressData._config;
     if (config && config.address) {
         addrEl.textContent = '\u2014 ' + config.address;
     } else {
         addrEl.textContent = '';
     }
 
+    // Address picker (show if user has access to multiple)
+    if (allAddresses.length > 1) {
+        var html = '<select id="address-select" onchange="onAddressChange(this.value)">';
+        for (var i = 0; i < allAddresses.length; i++) {
+            var sel = allAddresses[i].id === activeAddressId ? ' selected' : '';
+            html += '<option value="' + allAddresses[i].id + '"' + sel + '>' + escapeHtml(allAddresses[i].name) + '</option>';
+        }
+        html += '</select>';
+        pickerEl.innerHTML = html;
+        pickerEl.style.display = 'inline-block';
+    } else {
+        pickerEl.style.display = 'none';
+    }
+
+    // Populate setup form
     if (config) {
         document.getElementById('cfg-address').value = config.address || '';
         var admins = config.admins || [];
@@ -301,13 +427,22 @@ function updateAdminState() {
         }
     } else {
         document.getElementById('cfg-address').value = '';
-        document.getElementById('admin-email-0').value = currentUser.email;
+        document.getElementById('admin-email-0').value = currentUser ? currentUser.email : '';
         for (var aj = 1; aj < NUM_ADMIN_EMAILS; aj++) {
             document.getElementById('admin-email-' + aj).value = '';
         }
     }
+
+    renderUnitsTable();
 }
 
+function onAddressChange(id) {
+    selectAddress(id);
+}
+
+/* ================================================
+   FORMAT HELPERS
+   ================================================ */
 function fmt(n) {
     return n.toLocaleString('nb-NO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -316,20 +451,31 @@ function fmtPct(n) {
     return n.toFixed(2).replace('.', ',') + ' %';
 }
 
+function escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function escapeAttr(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 /* ================================================
-   TENANT HELPERS
+   TENANT/UNIT HELPERS
    ================================================ */
-function getTenantsForYear(entry) {
-    var tenants = [];
-    for (var i = 0; i < DEFAULT_TENANTS.length; i++) {
-        var dt = DEFAULT_TENANTS[i];
-        var name = dt.defaultName;
-        var pct = dt.pct;
-        if (entry.tenants && entry.tenants[dt.code]) name = entry.tenants[dt.code];
-        if (entry.percentages && entry.percentages[dt.code] !== undefined) pct = entry.percentages[dt.code];
-        tenants.push({ code: dt.code, name: name, pct: pct });
+function getUnitsForYear(entry) {
+    // Units come from _config.units, but per-year data may override name/pct
+    var configUnits = getUnits();
+    if (configUnits.length === 0) return [];
+    var result = [];
+    for (var i = 0; i < configUnits.length; i++) {
+        var u = configUnits[i];
+        var name = u.name;
+        var pct = u.pct;
+        if (entry.tenants && entry.tenants[u.code]) name = entry.tenants[u.code];
+        if (entry.percentages && entry.percentages[u.code] !== undefined) pct = entry.percentages[u.code];
+        result.push({ code: u.code, name: name || u.code, pct: pct });
     }
-    return tenants;
+    return result;
 }
 
 /* ================================================
@@ -358,13 +504,44 @@ function saveSetup() {
         return;
     }
 
-    appData._config = { address: address, admins: admins };
-    saveData(appData);
+    var units = collectUnitsFromForm();
+
+    var isNewAddress = !activeAddressId;
+    if (isNewAddress) {
+        activeAddressId = generateId();
+        sessionStorage.setItem('fellesutgifter_active_addr', activeAddressId);
+    }
+
+    if (!addressData._config) addressData._config = {};
+    addressData._config.address = address;
+    addressData._config.admins = admins;
+    addressData._config.units = units;
+
+    // Update addresses index
+    var found = false;
+    for (var a = 0; a < allAddresses.length; a++) {
+        if (allAddresses[a].id === activeAddressId) {
+            allAddresses[a].name = address;
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        allAddresses.push({ id: activeAddressId, name: address });
+    }
+
     updateAdminState();
+    updateUI();
     render();
 
-    writeGitHubData(appData).catch(function(err) {
-        console.error('GitHub save error:', err);
+    setSyncStatus('loading', 'Lagrer...');
+    Promise.all([
+        saveAddressData(),
+        saveAddressesIndex()
+    ]).then(function() {
+        setSyncStatus('ok', 'Lagret');
+    }).catch(function(err) {
+        setSyncStatus('err', 'Feil: ' + (err.message || err));
     });
 }
 
@@ -372,7 +549,12 @@ function saveYear() {
     if (!isAdmin) return;
     var year = document.getElementById('inp-year').value.trim();
     if (!year || isNaN(parseInt(year))) {
-        alert('Vennligst fyll inn et gyldig år.');
+        alert('Vennligst fyll inn et gyldig \u00e5r.');
+        return;
+    }
+
+    if (!activeAddressId) {
+        alert('Lagre innstillinger (adresse) f\u00f8rst.');
         return;
     }
 
@@ -390,39 +572,18 @@ function saveYear() {
         }
     }
 
-    var tenants = {};
-    var percentages = {};
-    for (var t = 0; t < DEFAULT_TENANTS.length; t++) {
-        var code = DEFAULT_TENANTS[t].code;
-        var nameVal = document.getElementById('tenant-' + code).value.trim();
-        tenants[code] = nameVal || DEFAULT_TENANTS[t].defaultName;
-        var pctVal = parseFloat(document.getElementById('pct-' + code).value);
-        percentages[code] = isNaN(pctVal) ? DEFAULT_TENANTS[t].pct : pctVal;
-    }
-
-    var emails = {};
-    for (var e = 0; e < DEFAULT_TENANTS.length; e++) {
-        var ecode = DEFAULT_TENANTS[e].code;
-        var emailVal = document.getElementById('email-' + ecode).value.trim();
-        if (emailVal) emails[ecode] = emailVal.toLowerCase();
-    }
-
-    var data = Object.assign({}, appData);
-    data[year] = {
+    addressData[year] = {
         if_cost: ifCost,
         kommunale: kommunale,
         anticimex: anticimex,
         uforutsett: uforutsett,
-        extras: extras,
-        tenants: tenants,
-        percentages: percentages,
-        emails: emails
+        extras: extras
     };
-    saveData(data);
+
     render(year);
     clearForm();
 
-    writeGitHubData(data).catch(function(err) {
+    saveAddressData().catch(function(err) {
         console.error('GitHub save error:', err);
     });
 }
@@ -438,17 +599,11 @@ function clearForm() {
         document.getElementById('extra-desc-' + i).value = '';
         document.getElementById('extra-cost-' + i).value = '';
     }
-
-    for (var t = 0; t < DEFAULT_TENANTS.length; t++) {
-        document.getElementById('tenant-' + DEFAULT_TENANTS[t].code).value = DEFAULT_TENANTS[t].defaultName;
-        document.getElementById('pct-' + DEFAULT_TENANTS[t].code).value = DEFAULT_TENANTS[t].pct;
-        document.getElementById('email-' + DEFAULT_TENANTS[t].code).value = '';
-    }
 }
 
 function loadYearIntoForm(year) {
     if (!isAdmin) return;
-    var entry = appData[year];
+    var entry = addressData[year];
     if (!entry) return;
 
     document.getElementById('inp-year').value = year;
@@ -468,21 +623,6 @@ function loadYearIntoForm(year) {
         }
     }
 
-    var tenants = entry.tenants || {};
-    var percentages = entry.percentages || {};
-    for (var t = 0; t < DEFAULT_TENANTS.length; t++) {
-        var code = DEFAULT_TENANTS[t].code;
-        document.getElementById('tenant-' + code).value = tenants[code] || DEFAULT_TENANTS[t].defaultName;
-        document.getElementById('pct-' + code).value =
-            (percentages[code] !== undefined) ? percentages[code] : DEFAULT_TENANTS[t].pct;
-    }
-
-    var emails = entry.emails || {};
-    for (var e = 0; e < DEFAULT_TENANTS.length; e++) {
-        var ecode = DEFAULT_TENANTS[e].code;
-        document.getElementById('email-' + ecode).value = emails[ecode] || '';
-    }
-
     document.getElementById('form-card').style.display = 'block';
 }
 
@@ -490,10 +630,11 @@ function loadYearIntoForm(year) {
    PDF EXPORT
    ================================================ */
 function exportPdf(year) {
-    var entry = appData[year];
+    var entry = addressData[year];
     if (!entry) return;
 
-    var yearTenants = getTenantsForYear(entry);
+    var yearUnits = getUnitsForYear(entry);
+    var addrName = (addressData._config && addressData._config.address) || '';
 
     var allCosts = [];
     for (var fi = 0; fi < COST_FIELDS.length; fi++) {
@@ -533,40 +674,43 @@ function exportPdf(year) {
         + '@media print{body{padding:1.5rem;}thead th{background:#1e3c72 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
         + '</style></head><body>';
 
-    h += '<h1>Kostnadsoversikt ' + year + '</h1>';
+    h += '<h1>Kostnadsoversikt ' + year + (addrName ? ' \u2014 ' + escapeHtml(addrName) : '') + '</h1>';
     h += '<h2>Generert ' + new Date().toLocaleDateString('nb-NO') + '</h2>';
 
     h += '<div class="summary">';
     for (var si = 0; si < allCosts.length; si++) {
-        h += '<div class="s-item"><div class="lbl">' + allCosts[si].label + '</div><div class="val">kr ' + fmt(allCosts[si].value) + '</div></div>';
+        h += '<div class="s-item"><div class="lbl">' + escapeHtml(allCosts[si].label) + '</div><div class="val">kr ' + fmt(allCosts[si].value) + '</div></div>';
     }
     h += '<div class="s-item s-total"><div class="lbl">Totalt</div><div class="val">kr ' + fmt(total) + '</div></div>';
     h += '</div>';
 
-    h += '<table><thead><tr><th>Kostnad (pr. mnd)</th>';
-    for (var ti = 0; ti < yearTenants.length; ti++) {
-        h += '<th>' + yearTenants[ti].name + '<span class="pct">' + fmtPct(yearTenants[ti].pct) + '</span></th>';
-    }
-    h += '</tr></thead><tbody>';
-
-    var pm = yearTenants.map(function() { return 0; });
-    for (var ri = 0; ri < allCosts.length; ri++) {
-        var monthly = allCosts[ri].value / 12;
-        h += '<tr><td>' + allCosts[ri].label + '</td>';
-        for (var pi = 0; pi < yearTenants.length; pi++) {
-            var share = monthly * yearTenants[pi].pct / 100;
-            pm[pi] += share;
-            h += '<td>kr ' + fmt(share) + '</td>';
+    if (yearUnits.length > 0) {
+        h += '<table><thead><tr><th>Kostnad (pr. mnd)</th>';
+        for (var ti = 0; ti < yearUnits.length; ti++) {
+            h += '<th>' + escapeHtml(yearUnits[ti].name) + '<span class="pct">' + fmtPct(yearUnits[ti].pct) + '</span></th>';
         }
-        h += '</tr>';
+        h += '</tr></thead><tbody>';
+
+        var pm = yearUnits.map(function() { return 0; });
+        for (var ri = 0; ri < allCosts.length; ri++) {
+            var monthly = allCosts[ri].value / 12;
+            h += '<tr><td>' + escapeHtml(allCosts[ri].label) + '</td>';
+            for (var pi = 0; pi < yearUnits.length; pi++) {
+                var share = monthly * yearUnits[pi].pct / 100;
+                pm[pi] += share;
+                h += '<td>kr ' + fmt(share) + '</td>';
+            }
+            h += '</tr>';
+        }
+
+        h += '</tbody><tfoot><tr><td>Sum pr. mnd</td>';
+        for (var mi = 0; mi < yearUnits.length; mi++) h += '<td>kr ' + fmt(pm[mi]) + '</td>';
+        h += '</tr><tr><td>Sum pr. \u00e5r</td>';
+        for (var ai = 0; ai < yearUnits.length; ai++) h += '<td>kr ' + fmt(pm[ai] * 12) + '</td>';
+        h += '</tr></tfoot></table>';
     }
 
-    h += '</tbody><tfoot><tr><td>Sum pr. mnd</td>';
-    for (var mi = 0; mi < yearTenants.length; mi++) h += '<td>kr ' + fmt(pm[mi]) + '</td>';
-    h += '</tr><tr><td>Sum pr. \u00e5r</td>';
-    for (var ai = 0; ai < yearTenants.length; ai++) h += '<td>kr ' + fmt(pm[ai] * 12) + '</td>';
-    h += '</tr></tfoot></table>';
-    h += '<div class="footer">Fellesutgifter &mdash; ' + year + '</div></body></html>';
+    h += '<div class="footer">Fellesutgifter \u2014 ' + escapeHtml(addrName) + ' \u2014 ' + year + '</div></body></html>';
 
     var printWin = window.open('', '_blank', 'width=900,height=700');
     printWin.document.write(h);
@@ -579,28 +723,34 @@ function exportPdf(year) {
    RENDER
    ================================================ */
 function render(selectYear) {
-    var data = appData;
+    var data = addressData;
     var years = Object.keys(data).filter(function(k) { return k !== '_config'; }).sort();
 
+    // Filter by email access for non-admins
     if (!isAdmin && currentUser) {
-        years = years.filter(function(y) {
-            var entry = data[y];
-            if (!entry.emails || Object.keys(entry.emails).length === 0) return true;
-            var vals = Object.keys(entry.emails).map(function(k) { return entry.emails[k]; });
-            return vals.indexOf(currentUser.email) !== -1;
-        });
+        var units = getUnits();
+        var userCodes = [];
+        for (var ui = 0; ui < units.length; ui++) {
+            if (units[ui].email === currentUser.email) userCodes.push(units[ui].code);
+        }
+        if (userCodes.length === 0 && units.length > 0) {
+            // User is not a member of any unit
+            years = [];
+        }
     }
 
     var container = document.getElementById('tabs-container');
 
     if (years.length === 0) {
         var msg;
-        if (!appData._config) {
+        if (allAddresses.length === 0) {
             msg = 'Velkommen! Klikk \u00ab\u2699\ufe0f Administrer\u00bb for \u00e5 opprette en adresse.';
+        } else if (!addressData._config) {
+            msg = 'Laster...';
         } else if (isAdmin) {
             msg = 'Ingen data lagt til enn\u00e5. Klikk \u00ab\u2699\ufe0f Administrer\u00bb og fyll inn skjemaet.';
         } else {
-            msg = 'Ingen data tilgjengelig enn\u00e5.';
+            msg = 'Ingen data tilgjengelig for deg enn\u00e5.';
         }
         container.innerHTML = '<div class="no-data">' + msg + '</div>';
         activeTab = null;
@@ -622,7 +772,7 @@ function render(selectYear) {
     tabBarHtml += '</div>';
 
     var entry = data[activeTab];
-    var yearTenants = getTenantsForYear(entry);
+    var yearUnits = getUnitsForYear(entry);
 
     var allCosts = [];
     for (var fi = 0; fi < COST_FIELDS.length; fi++) {
@@ -648,41 +798,46 @@ function render(selectYear) {
 
     html += '<div class="summary">';
     for (var si = 0; si < allCosts.length; si++) {
-        html += '<div class="summary-item"><div class="label">' + allCosts[si].label + '</div><div class="value">kr ' + fmt(allCosts[si].value) + '</div></div>';
+        html += '<div class="summary-item"><div class="label">' + escapeHtml(allCosts[si].label) + '</div><div class="value">kr ' + fmt(allCosts[si].value) + '</div></div>';
     }
     html += '<div class="summary-item" style="background:#1e3c72;color:#fff;"><div class="label" style="color:rgba(255,255,255,0.7);">Totalt</div><div class="value" style="color:#fff;">kr ' + fmt(total) + '</div></div>';
     html += '</div>';
 
-    html += '<table><thead><tr><th>Kostnad (pr. mnd)</th>';
-    for (var ti = 0; ti < yearTenants.length; ti++) {
-        html += '<th>' + yearTenants[ti].name + '<span class="pct">' + fmtPct(yearTenants[ti].pct) + '</span></th>';
-    }
-    html += '</tr></thead><tbody>';
-
-    var personTotalsMonthly = yearTenants.map(function() { return 0; });
-
-    for (var ri = 0; ri < allCosts.length; ri++) {
-        var val = allCosts[ri].value;
-        var monthly = val / 12;
-        html += '<tr><td>' + allCosts[ri].label + '</td>';
-        for (var pj = 0; pj < yearTenants.length; pj++) {
-            var share = monthly * yearTenants[pj].pct / 100;
-            personTotalsMonthly[pj] += share;
-            html += '<td>kr ' + fmt(share) + '</td>';
+    if (yearUnits.length > 0) {
+        html += '<table><thead><tr><th>Kostnad (pr. mnd)</th>';
+        for (var ti = 0; ti < yearUnits.length; ti++) {
+            html += '<th>' + escapeHtml(yearUnits[ti].name) + '<span class="pct">' + fmtPct(yearUnits[ti].pct) + '</span></th>';
         }
-        html += '</tr>';
+        html += '</tr></thead><tbody>';
+
+        var personTotalsMonthly = yearUnits.map(function() { return 0; });
+
+        for (var ri = 0; ri < allCosts.length; ri++) {
+            var val = allCosts[ri].value;
+            var monthly = val / 12;
+            html += '<tr><td>' + escapeHtml(allCosts[ri].label) + '</td>';
+            for (var pj = 0; pj < yearUnits.length; pj++) {
+                var share = monthly * yearUnits[pj].pct / 100;
+                personTotalsMonthly[pj] += share;
+                html += '<td>kr ' + fmt(share) + '</td>';
+            }
+            html += '</tr>';
+        }
+
+        html += '</tbody><tfoot><tr><td>Sum pr. mnd</td>';
+        for (var mi = 0; mi < yearUnits.length; mi++) {
+            html += '<td>kr ' + fmt(personTotalsMonthly[mi]) + '</td>';
+        }
+        html += '</tr><tr><td>Sum pr. \u00e5r</td>';
+        for (var ai = 0; ai < yearUnits.length; ai++) {
+            html += '<td>kr ' + fmt(personTotalsMonthly[ai] * 12) + '</td>';
+        }
+        html += '</tr></tfoot></table>';
+    } else {
+        html += '<p style="color:#999;margin-top:1rem;">Ingen enheter lagt til. G\u00e5 til Administrer for \u00e5 legge til enheter.</p>';
     }
 
-    html += '</tbody><tfoot><tr><td>Sum pr. mnd</td>';
-    for (var mi = 0; mi < yearTenants.length; mi++) {
-        html += '<td>kr ' + fmt(personTotalsMonthly[mi]) + '</td>';
-    }
-    html += '</tr><tr><td>Sum pr. \u00e5r</td>';
-    for (var ai = 0; ai < yearTenants.length; ai++) {
-        html += '<td>kr ' + fmt(personTotalsMonthly[ai] * 12) + '</td>';
-    }
-    html += '</tr></tfoot></table></div>';
-
+    html += '</div>';
     container.innerHTML = html;
 }
 
@@ -697,7 +852,6 @@ function switchTab(year) {
 function setupUploadArea() {
     var area = document.getElementById('upload-area');
     if (!area) return;
-
     area.addEventListener('dragover', function(e) {
         e.preventDefault();
         area.classList.add('drag-over');
@@ -708,25 +862,19 @@ function setupUploadArea() {
     area.addEventListener('drop', function(e) {
         e.preventDefault();
         area.classList.remove('drag-over');
-        if (e.dataTransfer.files.length > 0) {
-            handleInvoiceUpload(e.dataTransfer.files);
-        }
+        if (e.dataTransfer.files.length > 0) handleInvoiceUpload(e.dataTransfer.files);
     });
 }
 
 function handleInvoiceUpload(files) {
     var file = files[0];
     if (!file) return;
-
     if (!file.type.startsWith('image/')) {
         alert('Vennligst last opp et bilde (JPG, PNG, etc.).');
         return;
     }
-
     var reader = new FileReader();
-    reader.onload = function(e) {
-        runOCR(e.target.result, file.name);
-    };
+    reader.onload = function(e) { runOCR(e.target.result, file.name); };
     reader.readAsDataURL(file);
 }
 
@@ -739,10 +887,10 @@ function runOCR(imageData, fileName) {
     progressEl.style.display = 'block';
     resultEl.style.display = 'none';
     fillEl.style.width = '0%';
-    statusEl.textContent = 'Laster spr\u00e5kdata (f\u00f8rste gang tar litt tid)...';
+    statusEl.textContent = 'Laster spr\u00e5kdata...';
 
     if (typeof Tesseract === 'undefined') {
-        statusEl.textContent = 'Feil: Tesseract.js ikke lastet. Pr\u00f8v \u00e5 laste siden p\u00e5 nytt.';
+        statusEl.textContent = 'Feil: Tesseract.js ikke lastet.';
         return;
     }
 
@@ -753,9 +901,8 @@ function runOCR(imageData, fileName) {
                 fillEl.style.width = pct + '%';
                 statusEl.textContent = 'Analyserer tekst... ' + pct + '%';
             } else if (m.status === 'loading language traineddata') {
-                var lpct = Math.round((m.progress || 0) * 100);
-                fillEl.style.width = (lpct * 0.5) + '%';
-                statusEl.textContent = 'Laster norsk spr\u00e5kdata... ' + lpct + '%';
+                fillEl.style.width = (Math.round((m.progress || 0) * 100) * 0.5) + '%';
+                statusEl.textContent = 'Laster norsk spr\u00e5kdata...';
             } else if (m.status) {
                 statusEl.textContent = m.status.charAt(0).toUpperCase() + m.status.slice(1) + '...';
             }
@@ -780,35 +927,27 @@ function parseAmounts(text) {
     while ((match = regex.exec(text)) !== null) {
         var numStr = match[1].replace(/[\s.\u00a0]/g, '').replace(',', '.');
         var val = parseFloat(numStr);
-        if (val > 0 && val < 100000000) {
-            results.push({ value: val, index: match.index, raw: match[0] });
-        }
+        if (val > 0 && val < 100000000) results.push({ value: val, index: match.index, raw: match[0] });
     }
     return results;
 }
 
 function classifyInvoice(text) {
-    var lower = text.toLowerCase();
-    if (/\bif\b.*forsikring|skadeforsikring|if\s+skade/i.test(text) || /forsikringspremie|if\s+n[oø]rge/i.test(text)) {
+    if (/\bif\b.*forsikring|skadeforsikring|if\s+skade|forsikringspremie|if\s+n[o\u00f8]rge/i.test(text))
         return { key: 'if_cost', label: 'IF (forsikring)', inputId: 'inp-if' };
-    }
-    if (/kommune|kommunale\s*avgifter|eiendomsskatt|vann.*avl[oø]p|renovasjon|feiing/i.test(text)) {
+    if (/kommune|kommunale\s*avgifter|eiendomsskatt|vann.*avl[o\u00f8]p|renovasjon|feiing/i.test(text))
         return { key: 'kommunale', label: 'Kommunale avgifter', inputId: 'inp-kommunale' };
-    }
-    if (/anticimex|skadedyr/i.test(text)) {
+    if (/anticimex|skadedyr/i.test(text))
         return { key: 'anticimex', label: 'Anticimex', inputId: 'inp-anticimex' };
-    }
     return null;
 }
 
 function findTotalAmount(text, amounts) {
     if (amounts.length === 0) return null;
-
     var lower = text.toLowerCase();
-    var totalKeywords = ['totalt', 'total', '\u00e5 betale', 'a betale', 'sum', 'bel\u00f8p', 'netto'];
-
-    for (var k = 0; k < totalKeywords.length; k++) {
-        var idx = lower.indexOf(totalKeywords[k]);
+    var kws = ['totalt', 'total', '\u00e5 betale', 'a betale', 'sum', 'bel\u00f8p', 'netto'];
+    for (var k = 0; k < kws.length; k++) {
+        var idx = lower.indexOf(kws[k]);
         if (idx === -1) continue;
         var best = null;
         for (var a = 0; a < amounts.length; a++) {
@@ -819,8 +958,6 @@ function findTotalAmount(text, amounts) {
         }
         if (best) return best;
     }
-
-    // Fallback: largest amount
     var largest = amounts[0];
     for (var i = 1; i < amounts.length; i++) {
         if (amounts[i].value > largest.value) largest = amounts[i];
@@ -837,37 +974,31 @@ function processOCRResult(text, fileName) {
     if (!total) {
         resultEl.innerHTML = '<div class="ocr-card ocr-warn">'
             + '<strong>\u26a0\ufe0f Ingen bel\u00f8p funnet</strong>'
-            + '<p>Klarte ikke \u00e5 finne bel\u00f8p i bildet. Pr\u00f8v med et tydeligere bilde.</p>'
-            + '<details><summary>Vis gjenkjent tekst</summary>'
-            + '<pre class="ocr-text">' + escapeHtml(text) + '</pre></details>'
-            + '</div>';
+            + '<p>Klarte ikke \u00e5 finne bel\u00f8p i bildet.</p>'
+            + '<details><summary>Vis tekst</summary><pre class="ocr-text">' + escapeHtml(text) + '</pre></details></div>';
         resultEl.style.display = 'block';
         return;
     }
 
     var catLabel = category ? category.label : 'Ukjent kategori';
-    var html = '<div class="ocr-card ocr-success">'
-        + '<div class="ocr-found">'
+    var html = '<div class="ocr-card ocr-success"><div class="ocr-found">'
         + '<span class="ocr-amount">kr ' + fmt(total.value) + '</span>'
-        + '<span class="ocr-cat">' + catLabel + '</span>'
-        + '</div>';
+        + '<span class="ocr-cat">' + catLabel + '</span></div>';
 
     if (category) {
-        html += '<p>Bel\u00f8pet settes inn i feltet <strong>' + category.label + '</strong>.</p>'
+        html += '<p>Settes inn i <strong>' + category.label + '</strong>.</p>'
             + '<button class="btn-primary" style="margin-top:0.5rem" onclick="applyOCRResult(' + total.value + ',\'' + category.inputId + '\')">Bruk bel\u00f8p</button>';
     } else {
-        html += '<p>Kunne ikke gjenkjenne kategori automatisk. Velg felt:</p>'
-            + '<div class="ocr-buttons">'
+        html += '<p>Velg felt:</p><div class="ocr-buttons">'
             + '<button class="btn-secondary" onclick="applyOCRResult(' + total.value + ',\'inp-if\')">IF</button>'
             + '<button class="btn-secondary" onclick="applyOCRResult(' + total.value + ',\'inp-kommunale\')">Kommunale</button>'
             + '<button class="btn-secondary" onclick="applyOCRResult(' + total.value + ',\'inp-anticimex\')">Anticimex</button>'
             + '<button class="btn-secondary" onclick="applyOCRResult(' + total.value + ',\'inp-uforutsett\')">Uforutsett</button>'
-            + '<button class="btn-secondary" onclick="applyOCRToExtra(' + total.value + ')">Ekstra kostnad</button>'
-            + '</div>';
+            + '<button class="btn-secondary" onclick="applyOCRToExtra(' + total.value + ')">Ekstra</button></div>';
     }
 
     if (amounts.length > 1) {
-        html += '<details style="margin-top:0.8rem"><summary>Alle bel\u00f8p funnet (' + amounts.length + ')</summary><ul class="ocr-amounts-list">';
+        html += '<details style="margin-top:0.8rem"><summary>Alle bel\u00f8p (' + amounts.length + ')</summary><ul class="ocr-amounts-list">';
         for (var i = 0; i < amounts.length; i++) {
             var cls = amounts[i] === total ? ' class="ocr-highlight"' : '';
             html += '<li' + cls + '>kr ' + fmt(amounts[i].value) + '</li>';
@@ -875,10 +1006,7 @@ function processOCRResult(text, fileName) {
         html += '</ul></details>';
     }
 
-    html += '<details><summary>Vis gjenkjent tekst</summary>'
-        + '<pre class="ocr-text">' + escapeHtml(text) + '</pre></details>'
-        + '</div>';
-
+    html += '<details><summary>Vis tekst</summary><pre class="ocr-text">' + escapeHtml(text) + '</pre></details></div>';
     resultEl.innerHTML = html;
     resultEl.style.display = 'block';
 }
@@ -911,8 +1039,4 @@ function applyOCRToExtra(amount) {
     }
     document.getElementById('ocr-result').style.display = 'none';
     document.getElementById('invoice-file').value = '';
-}
-
-function escapeHtml(str) {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

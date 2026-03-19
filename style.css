@@ -298,6 +298,23 @@ tfoot td:first-child { text-align: left; }
 .ocr-amounts-list li { font-size: 0.85rem; padding: 0.15rem 0; color: #555; }
 .ocr-amounts-list .ocr-highlight { font-weight: 700; color: #1e3c72; }
 
+/* ---- Unit remove button ---- */
+.btn-remove {
+    background: #e74c3c; color: #fff; border: none; border-radius: 6px;
+    width: 28px; height: 28px; font-size: 1.1rem; line-height: 1;
+    cursor: pointer; padding: 0; display: inline-flex; align-items: center;
+    justify-content: center; transition: background 0.2s;
+}
+.btn-remove:hover { background: #c0392b; }
+
+/* ---- Address picker ---- */
+#address-select {
+    padding: 0.35rem 0.6rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.15); color: #fff; font-size: 0.85rem;
+    font-weight: 600; cursor: pointer;
+}
+#address-select option { color: #333; background: #fff; }
+
 @media print {
     body { background: #fff !important; padding: 0 !important; }
     .top-bar, #form-card, .tab-bar, .btn-pdf, .action-btn,

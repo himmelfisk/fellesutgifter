@@ -30,6 +30,7 @@
     <div class="top-bar">
         <h1>Fellesutgifter <span id="address-display" class="address-display"></span></h1>
         <div class="top-right">
+            <span id="address-picker" style="display:none;"></span>
             <span id="sync-status"></span>
             <button id="admin-btn" class="btn-admin" style="display:none;" onclick="toggleForm()">&#9881;&#65039; Administrer</button>
             <span id="user-info" class="user-info"></span>
@@ -101,57 +102,13 @@
                 <tbody id="extra-costs-body"></tbody>
             </table>
 
-            <!-- Tenant fields with editable percentages -->
+            <!-- Dynamic units -->
             <h3>Beboer og brøk</h3>
             <table class="tenants-table">
-                <thead><tr><th>Kode</th><th>Navn</th><th>Andel (%)</th></tr></thead>
-                <tbody>
-                    <tr>
-                        <td class="code">K0101</td>
-                        <td><input type="text" id="tenant-K0101" value="Kenneth"></td>
-                        <td><input type="number" id="pct-K0101" value="22.19" step="0.01" min="0" max="100"></td>
-                    </tr>
-                    <tr>
-                        <td class="code">H0101</td>
-                        <td><input type="text" id="tenant-H0101" value="Ole"></td>
-                        <td><input type="number" id="pct-H0101" value="28.64" step="0.01" min="0" max="100"></td>
-                    </tr>
-                    <tr>
-                        <td class="code">H0102</td>
-                        <td><input type="text" id="tenant-H0102" value="Theodor"></td>
-                        <td><input type="number" id="pct-H0102" value="27.76" step="0.01" min="0" max="100"></td>
-                    </tr>
-                    <tr>
-                        <td class="code">L0101</td>
-                        <td><input type="text" id="tenant-L0101" value="Lis"></td>
-                        <td><input type="number" id="pct-L0101" value="21.41" step="0.01" min="0" max="100"></td>
-                    </tr>
-                </tbody>
+                <thead><tr><th>Kode</th><th>Navn</th><th>Andel (%)</th><th>E-post</th><th></th></tr></thead>
+                <tbody id="units-body"></tbody>
             </table>
-
-            <!-- Email access per unit -->
-            <h3>E-postadresser (tilgang)</h3>
-            <table class="tenants-table">
-                <thead><tr><th>Kode</th><th>E-post</th></tr></thead>
-                <tbody>
-                    <tr>
-                        <td class="code">K0101</td>
-                        <td><input type="email" id="email-K0101" placeholder="e-post@eksempel.no"></td>
-                    </tr>
-                    <tr>
-                        <td class="code">H0101</td>
-                        <td><input type="email" id="email-H0101" placeholder="e-post@eksempel.no"></td>
-                    </tr>
-                    <tr>
-                        <td class="code">H0102</td>
-                        <td><input type="email" id="email-H0102" placeholder="e-post@eksempel.no"></td>
-                    </tr>
-                    <tr>
-                        <td class="code">L0101</td>
-                        <td><input type="email" id="email-L0101" placeholder="e-post@eksempel.no"></td>
-                    </tr>
-                </tbody>
-            </table>
+            <button class="btn-secondary" style="margin-top:0.5rem;" onclick="addUnit()">+ Legg til enhet</button>
 
             <div class="btn-row">
                 <button class="btn-secondary" onclick="clearForm()">Tøm skjema</button>
