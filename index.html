@@ -6,6 +6,7 @@
     <title>Fellesutgifter</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
 
@@ -49,6 +50,23 @@
             <div class="btn-row" style="margin-bottom:1.5rem;">
                 <button class="btn-primary" onclick="saveSetup()">Lagre innstillinger</button>
             </div>
+            <hr style="border:none;border-top:2px solid #e8ecf1;margin-bottom:1.5rem;">
+
+            <!-- Invoice upload -->
+            <h2>Last opp faktura</h2>
+            <p class="upload-desc">Ta bilde av en faktura eller last opp et bilde. Teksten analyseres automatisk, og beløp og kategori fylles inn i skjemaet under.</p>
+            <div class="upload-area" id="upload-area">
+                <div class="upload-icon">📄</div>
+                <p>Dra og slipp et bilde her, eller <label for="invoice-file" class="upload-link">velg fil</label></p>
+                <p class="upload-hint">Støtter JPG, PNG og andre bildeformater</p>
+                <input type="file" id="invoice-file" accept="image/*" style="display:none" onchange="handleInvoiceUpload(this.files)">
+            </div>
+            <div id="ocr-progress" style="display:none;">
+                <div class="progress-bar"><div class="progress-fill" id="ocr-progress-fill"></div></div>
+                <p id="ocr-status" class="ocr-status">Forbereder...</p>
+            </div>
+            <div id="ocr-result" class="ocr-result" style="display:none;"></div>
+
             <hr style="border:none;border-top:2px solid #e8ecf1;margin-bottom:1.5rem;">
 
             <h2>Legg til / oppdater år</h2>

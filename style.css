@@ -233,6 +233,71 @@ tfoot td:first-child { text-align: left; }
     .tenants-table input[type="number"] { width: 70px; }
 }
 
+/* ---- Upload area ---- */
+.upload-desc {
+    font-size: 0.9rem; color: #777; margin-bottom: 0.8rem; line-height: 1.5;
+}
+.upload-area {
+    border: 2px dashed #c5cdd8; border-radius: 12px; padding: 2rem;
+    text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s;
+    background: #f8fafc;
+}
+.upload-area:hover, .upload-area.drag-over {
+    border-color: #2a5298; background: #eef3fb;
+}
+.upload-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.upload-area p { color: #666; font-size: 0.95rem; margin: 0.2rem 0; }
+.upload-link {
+    color: #2a5298; font-weight: 600; cursor: pointer;
+    text-decoration: underline;
+}
+.upload-hint { font-size: 0.8rem !important; color: #aaa !important; margin-top: 0.3rem !important; }
+
+/* ---- OCR progress ---- */
+.progress-bar {
+    width: 100%; height: 8px; background: #e8ecf1; border-radius: 4px;
+    overflow: hidden; margin-top: 1rem;
+}
+.progress-fill {
+    height: 100%; background: linear-gradient(90deg, #2a5298, #27ae60);
+    border-radius: 4px; transition: width 0.3s ease;
+    width: 0%;
+}
+.ocr-status {
+    font-size: 0.85rem; color: #777; margin-top: 0.4rem; text-align: center;
+}
+
+/* ---- OCR result ---- */
+.ocr-card {
+    border-radius: 12px; padding: 1.2rem; margin-top: 1rem;
+}
+.ocr-success { background: #e8f5e9; border: 1px solid #a5d6a7; }
+.ocr-warn { background: #fff8e1; border: 1px solid #ffe082; }
+
+.ocr-found { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.ocr-amount { font-size: 1.6rem; font-weight: 700; color: #1e3c72; }
+.ocr-cat {
+    font-size: 0.9rem; font-weight: 600; color: #27ae60;
+    background: rgba(39,174,96,0.1); padding: 0.2rem 0.6rem; border-radius: 6px;
+}
+
+.ocr-buttons { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.ocr-buttons .btn-secondary { padding: 0.35rem 0.8rem; font-size: 0.82rem; }
+
+.ocr-result details { margin-top: 0.5rem; }
+.ocr-result summary {
+    cursor: pointer; font-size: 0.85rem; color: #2a5298; font-weight: 600;
+}
+.ocr-text {
+    background: #f5f5f5; border-radius: 8px; padding: 0.8rem;
+    font-size: 0.8rem; max-height: 200px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word; margin-top: 0.5rem;
+    color: #555; line-height: 1.5;
+}
+.ocr-amounts-list { list-style: none; padding: 0; margin-top: 0.4rem; }
+.ocr-amounts-list li { font-size: 0.85rem; padding: 0.15rem 0; color: #555; }
+.ocr-amounts-list .ocr-highlight { font-weight: 700; color: #1e3c72; }
+
 @media print {
     body { background: #fff !important; padding: 0 !important; }
     .top-bar, #form-card, .tab-bar, .btn-pdf, .action-btn,

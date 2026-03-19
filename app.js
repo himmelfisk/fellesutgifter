@@ -96,6 +96,7 @@ function initGoogleSignIn() {
 window.addEventListener('load', function() {
     buildExtraCostRows();
     buildAdminEmailRows();
+    setupUploadArea();
     setTimeout(initGoogleSignIn, 500);
     setTimeout(function() { if (!currentUser) initGoogleSignIn(); }, 2000);
 });
@@ -688,4 +689,230 @@ function render(selectYear) {
 function switchTab(year) {
     activeTab = String(year);
     render();
+}
+
+/* ================================================
+   INVOICE UPLOAD & OCR
+   ================================================ */
+function setupUploadArea() {
+    var area = document.getElementById('upload-area');
+    if (!area) return;
+
+    area.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        area.classList.add('drag-over');
+    });
+    area.addEventListener('dragleave', function() {
+        area.classList.remove('drag-over');
+    });
+    area.addEventListener('drop', function(e) {
+        e.preventDefault();
+        area.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) {
+            handleInvoiceUpload(e.dataTransfer.files);
+        }
+    });
+}
+
+function handleInvoiceUpload(files) {
+    var file = files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        alert('Vennligst last opp et bilde (JPG, PNG, etc.).');
+        return;
+    }
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        runOCR(e.target.result, file.name);
+    };
+    reader.readAsDataURL(file);
+}
+
+function runOCR(imageData, fileName) {
+    var progressEl = document.getElementById('ocr-progress');
+    var fillEl = document.getElementById('ocr-progress-fill');
+    var statusEl = document.getElementById('ocr-status');
+    var resultEl = document.getElementById('ocr-result');
+
+    progressEl.style.display = 'block';
+    resultEl.style.display = 'none';
+    fillEl.style.width = '0%';
+    statusEl.textContent = 'Laster spr\u00e5kdata (f\u00f8rste gang tar litt tid)...';
+
+    if (typeof Tesseract === 'undefined') {
+        statusEl.textContent = 'Feil: Tesseract.js ikke lastet. Pr\u00f8v \u00e5 laste siden p\u00e5 nytt.';
+        return;
+    }
+
+    Tesseract.recognize(imageData, 'nor', {
+        logger: function(m) {
+            if (m.status === 'recognizing text') {
+                var pct = Math.round((m.progress || 0) * 100);
+                fillEl.style.width = pct + '%';
+                statusEl.textContent = 'Analyserer tekst... ' + pct + '%';
+            } else if (m.status === 'loading language traineddata') {
+                var lpct = Math.round((m.progress || 0) * 100);
+                fillEl.style.width = (lpct * 0.5) + '%';
+                statusEl.textContent = 'Laster norsk spr\u00e5kdata... ' + lpct + '%';
+            } else if (m.status) {
+                statusEl.textContent = m.status.charAt(0).toUpperCase() + m.status.slice(1) + '...';
+            }
+        }
+    })
+    .then(function(result) {
+        fillEl.style.width = '100%';
+        statusEl.textContent = 'Ferdig!';
+        setTimeout(function() { progressEl.style.display = 'none'; }, 1500);
+        processOCRResult(result.data.text, fileName);
+    })
+    .catch(function(err) {
+        statusEl.textContent = 'Feil under analyse: ' + err.message;
+        fillEl.style.width = '0%';
+    });
+}
+
+function parseAmounts(text) {
+    var results = [];
+    var regex = /(\d{1,3}(?:[\s.\u00a0]\d{3})*,\d{2})/g;
+    var match;
+    while ((match = regex.exec(text)) !== null) {
+        var numStr = match[1].replace(/[\s.\u00a0]/g, '').replace(',', '.');
+        var val = parseFloat(numStr);
+        if (val > 0 && val < 100000000) {
+            results.push({ value: val, index: match.index, raw: match[0] });
+        }
+    }
+    return results;
+}
+
+function classifyInvoice(text) {
+    var lower = text.toLowerCase();
+    if (/\bif\b.*forsikring|skadeforsikring|if\s+skade/i.test(text) || /forsikringspremie|if\s+n[oø]rge/i.test(text)) {
+        return { key: 'if_cost', label: 'IF (forsikring)', inputId: 'inp-if' };
+    }
+    if (/kommune|kommunale\s*avgifter|eiendomsskatt|vann.*avl[oø]p|renovasjon|feiing/i.test(text)) {
+        return { key: 'kommunale', label: 'Kommunale avgifter', inputId: 'inp-kommunale' };
+    }
+    if (/anticimex|skadedyr/i.test(text)) {
+        return { key: 'anticimex', label: 'Anticimex', inputId: 'inp-anticimex' };
+    }
+    return null;
+}
+
+function findTotalAmount(text, amounts) {
+    if (amounts.length === 0) return null;
+
+    var lower = text.toLowerCase();
+    var totalKeywords = ['totalt', 'total', '\u00e5 betale', 'a betale', 'sum', 'bel\u00f8p', 'netto'];
+
+    for (var k = 0; k < totalKeywords.length; k++) {
+        var idx = lower.indexOf(totalKeywords[k]);
+        if (idx === -1) continue;
+        var best = null;
+        for (var a = 0; a < amounts.length; a++) {
+            var dist = amounts[a].index - idx;
+            if (dist > -20 && dist < 150) {
+                if (!best || amounts[a].value > best.value) best = amounts[a];
+            }
+        }
+        if (best) return best;
+    }
+
+    // Fallback: largest amount
+    var largest = amounts[0];
+    for (var i = 1; i < amounts.length; i++) {
+        if (amounts[i].value > largest.value) largest = amounts[i];
+    }
+    return largest;
+}
+
+function processOCRResult(text, fileName) {
+    var resultEl = document.getElementById('ocr-result');
+    var amounts = parseAmounts(text);
+    var category = classifyInvoice(text);
+    var total = findTotalAmount(text, amounts);
+
+    if (!total) {
+        resultEl.innerHTML = '<div class="ocr-card ocr-warn">'
+            + '<strong>\u26a0\ufe0f Ingen bel\u00f8p funnet</strong>'
+            + '<p>Klarte ikke \u00e5 finne bel\u00f8p i bildet. Pr\u00f8v med et tydeligere bilde.</p>'
+            + '<details><summary>Vis gjenkjent tekst</summary>'
+            + '<pre class="ocr-text">' + escapeHtml(text) + '</pre></details>'
+            + '</div>';
+        resultEl.style.display = 'block';
+        return;
+    }
+
+    var catLabel = category ? category.label : 'Ukjent kategori';
+    var html = '<div class="ocr-card ocr-success">'
+        + '<div class="ocr-found">'
+        + '<span class="ocr-amount">kr ' + fmt(total.value) + '</span>'
+        + '<span class="ocr-cat">' + catLabel + '</span>'
+        + '</div>';
+
+    if (category) {
+        html += '<p>Bel\u00f8pet settes inn i feltet <strong>' + category.label + '</strong>.</p>'
+            + '<button class="btn-primary" style="margin-top:0.5rem" onclick="applyOCRResult(' + total.value + ',\'' + category.inputId + '\')">Bruk bel\u00f8p</button>';
+    } else {
+        html += '<p>Kunne ikke gjenkjenne kategori automatisk. Velg felt:</p>'
+            + '<div class="ocr-buttons">'
+            + '<button class="btn-secondary" onclick="applyOCRResult(' + total.value + ',\'inp-if\')">IF</button>'
+            + '<button class="btn-secondary" onclick="applyOCRResult(' + total.value + ',\'inp-kommunale\')">Kommunale</button>'
+            + '<button class="btn-secondary" onclick="applyOCRResult(' + total.value + ',\'inp-anticimex\')">Anticimex</button>'
+            + '<button class="btn-secondary" onclick="applyOCRResult(' + total.value + ',\'inp-uforutsett\')">Uforutsett</button>'
+            + '<button class="btn-secondary" onclick="applyOCRToExtra(' + total.value + ')">Ekstra kostnad</button>'
+            + '</div>';
+    }
+
+    if (amounts.length > 1) {
+        html += '<details style="margin-top:0.8rem"><summary>Alle bel\u00f8p funnet (' + amounts.length + ')</summary><ul class="ocr-amounts-list">';
+        for (var i = 0; i < amounts.length; i++) {
+            var cls = amounts[i] === total ? ' class="ocr-highlight"' : '';
+            html += '<li' + cls + '>kr ' + fmt(amounts[i].value) + '</li>';
+        }
+        html += '</ul></details>';
+    }
+
+    html += '<details><summary>Vis gjenkjent tekst</summary>'
+        + '<pre class="ocr-text">' + escapeHtml(text) + '</pre></details>'
+        + '</div>';
+
+    resultEl.innerHTML = html;
+    resultEl.style.display = 'block';
+}
+
+function applyOCRResult(amount, inputId) {
+    var el = document.getElementById(inputId);
+    if (el) {
+        el.value = amount;
+        el.focus();
+        el.style.transition = 'background 0.3s';
+        el.style.background = '#d4edda';
+        setTimeout(function() { el.style.background = ''; }, 2000);
+    }
+    document.getElementById('ocr-result').style.display = 'none';
+    document.getElementById('invoice-file').value = '';
+}
+
+function applyOCRToExtra(amount) {
+    for (var i = 0; i < NUM_EXTRA_ROWS; i++) {
+        var descEl = document.getElementById('extra-desc-' + i);
+        var costEl = document.getElementById('extra-cost-' + i);
+        if (!descEl.value && !costEl.value) {
+            costEl.value = amount;
+            descEl.focus();
+            costEl.style.transition = 'background 0.3s';
+            costEl.style.background = '#d4edda';
+            setTimeout(function() { costEl.style.background = ''; }, 2000);
+            break;
+        }
+    }
+    document.getElementById('ocr-result').style.display = 'none';
+    document.getElementById('invoice-file').value = '';
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
