@@ -760,7 +760,8 @@ function saveAll() {
     var setup = _saveSetupInner();
     if (!setup) return;
 
-    var year = document.getElementById('inp-year').value.trim();
+    // Use editingYear if in edit mode, otherwise read from input
+    var year = editingYear || document.getElementById('inp-year').value.trim();
     var hasYear = year && !isNaN(parseInt(year));
 
     var saves = [saveAddressConfig(), saveAddressesIndex()];
