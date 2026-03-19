@@ -348,6 +348,30 @@
                 </tbody>
             </table>
 
+            <!-- Email access per unit -->
+            <h3>E-postadresser (tilgang)</h3>
+            <table class="tenants-table">
+                <thead><tr><th>Kode</th><th>E-post</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td class="code">K0101</td>
+                        <td><input type="email" id="email-K0101" placeholder="e-post@eksempel.no"></td>
+                    </tr>
+                    <tr>
+                        <td class="code">H0101</td>
+                        <td><input type="email" id="email-H0101" placeholder="e-post@eksempel.no"></td>
+                    </tr>
+                    <tr>
+                        <td class="code">H0102</td>
+                        <td><input type="email" id="email-H0102" placeholder="e-post@eksempel.no"></td>
+                    </tr>
+                    <tr>
+                        <td class="code">L0101</td>
+                        <td><input type="email" id="email-L0101" placeholder="e-post@eksempel.no"></td>
+                    </tr>
+                </tbody>
+            </table>
+
             <div class="btn-row">
                 <button class="btn-secondary" onclick="clearForm()">Tøm skjema</button>
                 <button class="btn-primary" onclick="saveYear()">Lagre</button>
@@ -692,6 +716,14 @@
             percentages[code] = isNaN(pctVal) ? DEFAULT_TENANTS[t].pct : pctVal;
         }
 
+        // Emails
+        var emails = {};
+        for (var e = 0; e < DEFAULT_TENANTS.length; e++) {
+            var ecode = DEFAULT_TENANTS[e].code;
+            var emailVal = document.getElementById('email-' + ecode).value.trim();
+            if (emailVal) emails[ecode] = emailVal.toLowerCase();
+        }
+
         var data = Object.assign({}, appData);
         data[year] = {
             if_cost: ifCost,
@@ -700,7 +732,8 @@
             uforutsett: uforutsett,
             extras: extras,
             tenants: tenants,
-            percentages: percentages
+            percentages: percentages,
+            emails: emails
         };
         saveData(data);
         render(year);
@@ -727,6 +760,7 @@
         for (var t = 0; t < DEFAULT_TENANTS.length; t++) {
             document.getElementById('tenant-' + DEFAULT_TENANTS[t].code).value = DEFAULT_TENANTS[t].defaultName;
             document.getElementById('pct-' + DEFAULT_TENANTS[t].code).value = DEFAULT_TENANTS[t].pct;
+            document.getElementById('email-' + DEFAULT_TENANTS[t].code).value = '';
         }
     }
 
@@ -759,6 +793,12 @@
             document.getElementById('tenant-' + code).value = tenants[code] || DEFAULT_TENANTS[t].defaultName;
             document.getElementById('pct-' + code).value =
                 (percentages[code] !== undefined) ? percentages[code] : DEFAULT_TENANTS[t].pct;
+        }
+
+        var emails = entry.emails || {};
+        for (var e = 0; e < DEFAULT_TENANTS.length; e++) {
+            var ecode = DEFAULT_TENANTS[e].code;
+            document.getElementById('email-' + ecode).value = emails[ecode] || '';
         }
 
         document.getElementById('form-card').style.display = 'block';
@@ -859,6 +899,17 @@
     function render(selectYear) {
         var data = appData;
         var years = Object.keys(data).sort();
+
+        // Filter years based on email access (admins see all)
+        if (!isAdmin && currentUser) {
+            years = years.filter(function(y) {
+                var entry = data[y];
+                if (!entry.emails || Object.keys(entry.emails).length === 0) return true;
+                var vals = Object.keys(entry.emails).map(function(k) { return entry.emails[k]; });
+                return vals.indexOf(currentUser.email) !== -1;
+            });
+        }
+
         var container = document.getElementById('tabs-container');
 
         if (years.length === 0) {
