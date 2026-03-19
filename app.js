@@ -5,7 +5,7 @@ var GOOGLE_CLIENT_ID = '10152340554-g0bdlarlbf8tr4ldn31foq79uh0feqn8.apps.google
 var GITHUB_REPO = 'himmelfisk/fellesutgifter';
 var GITHUB_DATA_DIR = 'data';
 var ADDRESSES_FILE = 'data/addresses.json';
-var WORKER_URL = 'https://fellesutgifter-proxy.DITT-NAVN.workers.dev';
+var WORKER_URL = 'https://fellesutgifter-proxy.k-a-lorgen.workers.dev';
 var MAX_IMAGE_PX = 1200;
 var IMAGE_QUALITY = 0.7;
 
