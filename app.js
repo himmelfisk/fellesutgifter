@@ -844,12 +844,47 @@ function deleteYear() {
     var path = yearFilePath(activeAddressId, year);
 
     setSyncStatus('loading', 'Sletter...');
-    Promise.all([ghDeleteFile(path), saveAddressConfig()])
+    var deletes = [ghDeleteFile(path)];
+
+    // If no years left, delete the entire address
+    var noYearsLeft = !addressConfig.years || addressConfig.years.length === 0;
+    if (noYearsLeft) {
+        var addrId = activeAddressId;
+        // Remove from addresses index
+        for (var ai = allAddresses.length - 1; ai >= 0; ai--) {
+            if (allAddresses[ai].id === addrId) {
+                allAddresses.splice(ai, 1);
+                break;
+            }
+        }
+        // Delete config file
+        deletes.push(ghDeleteFile(configFilePath(addrId)));
+        deletes.push(saveAddressesIndex());
+    } else {
+        deletes.push(saveAddressConfig());
+    }
+
+    Promise.all(deletes)
     .then(function() {
-        activeTab = (addressConfig.years && addressConfig.years.length > 0) ? addressConfig.years[addressConfig.years.length - 1] : null;
-        clearForm();
-        updateUI();
-        render();
+        if (noYearsLeft) {
+            // Switch to another address or reset
+            activeAddressId = null;
+            addressConfig = {};
+            yearDataCache = {};
+            activeTab = null;
+            if (allAddresses.length > 0) {
+                selectAddress(allAddresses[0].id);
+            } else {
+                clearForm();
+                updateUI();
+                render();
+            }
+        } else {
+            activeTab = addressConfig.years[addressConfig.years.length - 1];
+            clearForm();
+            updateUI();
+            render();
+        }
         setSyncStatus('ok', 'Slettet');
     })
     .catch(function(err) {
