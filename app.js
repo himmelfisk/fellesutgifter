@@ -257,7 +257,21 @@ function loadAddressConfig(id) {
     setSyncStatus('loading', 'Henter data...');
     ghReadFile(configFilePath(id))
     .then(function(data) {
-        addressConfig = data || {};
+        if (!data) {
+            // Config file missing — remove stale address from index
+            for (var i = allAddresses.length - 1; i >= 0; i--) {
+                if (allAddresses[i].id === id) {
+                    allAddresses.splice(i, 1);
+                    break;
+                }
+            }
+            // Save cleaned index silently
+            if (googleIdToken) saveAddressesIndex();
+            // Move to next address or fresh start
+            afterAddressesLoaded();
+            return;
+        }
+        addressConfig = data;
         setSyncStatus('ok', 'Synkronisert');
         updateAdminState();
         updateUI();
