@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fellesutgifter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f4f8;
+            color: #2d3748;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.2rem;
+            color: #2b6cb0;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 32px;
+            font-size: 1rem;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            color: #2b6cb0;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        input, select {
+            padding: 10px 14px;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: #4299e1;
+        }
+
+        input[type="text"], input[type="number"] {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        select {
+            flex: 1;
+            min-width: 120px;
+            background: #fff;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #4299e1;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            background: #3182ce;
+        }
+
+        .btn-danger {
+            background: #fc8181;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+
+        .btn-danger:hover {
+            background: #f56565;
+        }
+
+        .btn-secondary {
+            background: #a0aec0;
+        }
+
+        .btn-secondary:hover {
+            background: #718096;
+        }
+
+        .participants-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .participant-tag {
+            background: #ebf8ff;
+            color: #2b6cb0;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .participant-tag button {
+            background: none;
+            color: #e53e3e;
+            padding: 0;
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+
+        .participant-tag button:hover {
+            color: #c53030;
+            background: none;
+        }
+
+        .expense-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .expense-item:last-child {
+            border-bottom: none;
+        }
+
+        .expense-info {
+            flex: 1;
+        }
+
+        .expense-info strong {
+            color: #2d3748;
+        }
+
+        .expense-info .expense-detail {
+            color: #718096;
+            font-size: 0.85rem;
+        }
+
+        .expense-amount {
+            font-weight: 700;
+            color: #2b6cb0;
+            font-size: 1.1rem;
+            margin-right: 10px;
+        }
+
+        .balance-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+        }
+
+        .balance-positive {
+            background: #f0fff4;
+            color: #276749;
+        }
+
+        .balance-negative {
+            background: #fff5f5;
+            color: #c53030;
+        }
+
+        .balance-zero {
+            background: #f7fafc;
+            color: #718096;
+        }
+
+        .settlement-item {
+            padding: 10px 16px;
+            background: #fffff0;
+            border-left: 4px solid #ecc94b;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #a0aec0;
+            padding: 20px;
+            font-style: italic;
+        }
+
+        .total-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            margin-top: 8px;
+            border-top: 2px solid #e2e8f0;
+            font-weight: 600;
+        }
+
+        .actions-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            justify-content: flex-end;
+        }
+
+        @media (max-width: 500px) {
+            h1 { font-size: 1.6rem; }
+            .card { padding: 16px; }
+            .input-row { flex-direction: column; }
+            button { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💰 Fellesutgifter</h1>
+        <p class="subtitle">Hold oversikt over felles utgifter og gjør opp enkelt</p>
+
+        <!-- Deltakere -->
+        <div class="card">
+            <h2>👥 Deltakere</h2>
+            <div class="input-row">
+                <input type="text" id="participantName" placeholder="Navn..." onkeydown="if(event.key==='Enter') addParticipant()">
+                <button onclick="addParticipant()">Legg til</button>
+            </div>
+            <div class="participants-list" id="participantsList"></div>
+        </div>
+
+        <!-- Legg til utgift -->
+        <div class="card">
+            <h2>➕ Legg til utgift</h2>
+            <div class="input-row">
+                <select id="expensePayer">
+                    <option value="">Hvem betalte?</option>
+                </select>
+                <input type="number" id="expenseAmount" placeholder="Beløp (kr)" min="0" step="0.01" onkeydown="if(event.key==='Enter') addExpense()">
+            </div>
+            <div class="input-row">
+                <input type="text" id="expenseDescription" placeholder="Beskrivelse (valgfritt)" onkeydown="if(event.key==='Enter') addExpense()">
+                <button onclick="addExpense()">Legg til utgift</button>
+            </div>
+        </div>
+
+        <!-- Utgiftsliste -->
+        <div class="card">
+            <h2>📋 Utgifter</h2>
+            <div id="expensesList"></div>
+            <div class="total-bar" id="totalBar" style="display:none;">
+                <span>Totalt:</span>
+                <span id="totalAmount"></span>
+            </div>
+        </div>
+
+        <!-- Oppgjør -->
+        <div class="card">
+            <h2>⚖️ Balanse og oppgjør</h2>
+            <div id="balanceList"></div>
+            <div id="settlementList" style="margin-top: 16px;"></div>
+        </div>
+
+        <!-- Handlinger -->
+        <div class="actions-row">
+            <button class="btn-secondary" onclick="resetAll()">🗑️ Nullstill alt</button>
+        </div>
+    </div>
+
+    <script>
+        let participants = JSON.parse(localStorage.getItem('fe_participants') || '[]');
+        let expenses = JSON.parse(localStorage.getItem('fe_expenses') || '[]');
+
+        function save() {
+            localStorage.setItem('fe_participants', JSON.stringify(participants));
+            localStorage.setItem('fe_expenses', JSON.stringify(expenses));
+        }
+
+        function addParticipant() {
+            const input = document.getElementById('participantName');
+            const name = input.value.trim();
+            if (!name) return;
+            if (participants.find(p => p.toLowerCase() === name.toLowerCase())) {
+                alert('Denne deltakeren finnes allerede!');
+                return;
+            }
+            participants.push(name);
+            input.value = '';
+            save();
+            render();
+        }
+
+        function removeParticipant(name) {
+            if (expenses.some(e => e.payer === name)) {
+                if (!confirm(`${name} har utgifter registrert. Fjerne deltaker og tilhørende utgifter?`)) return;
+                expenses = expenses.filter(e => e.payer !== name);
+            }
+            participants = participants.filter(p => p !== name);
+            save();
+            render();
+        }
+
+        function addExpense() {
+            const payer = document.getElementById('expensePayer').value;
+            const amount = parseFloat(document.getElementById('expenseAmount').value);
+            const description = document.getElementById('expenseDescription').value.trim();
+
+            if (!payer) { alert('Velg hvem som betalte!'); return; }
+            if (!amount || amount <= 0) { alert('Skriv inn et gyldig beløp!'); return; }
+
+            expenses.push({
+                id: Date.now(),
+                payer,
+                amount,
+                description: description || 'Utgift',
+                date: new Date().toLocaleDateString('no-NO')
+            });
+
+            document.getElementById('expenseAmount').value = '';
+            document.getElementById('expenseDescription').value = '';
+            save();
+            render();
+        }
+
+        function removeExpense(id) {
+            expenses = expenses.filter(e => e.id !== id);
+            save();
+            render();
+        }
+
+        function calculateBalances() {
+            if (participants.length === 0 || expenses.length === 0) return { balances: {}, settlements: [] };
+
+            const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+            const perPerson = total / participants.length;
+            const balances = {};
+
+            participants.forEach(p => {
+                const paid = expenses.filter(e => e.payer === p).reduce((sum, e) => sum + e.amount, 0);
+                balances[p] = paid - perPerson;
+            });
+
+            // Calculate settlements
+            const debtors = [];
+            const creditors = [];
+            participants.forEach(p => {
+                if (balances[p] < -0.01) debtors.push({ name: p, amount: -balances[p] });
+                else if (balances[p] > 0.01) creditors.push({ name: p, amount: balances[p] });
+            });
+
+            debtors.sort((a, b) => b.amount - a.amount);
+            creditors.sort((a, b) => b.amount - a.amount);
+
+            const settlements = [];
+            let i = 0, j = 0;
+            while (i < debtors.length && j < creditors.length) {
+                const amount = Math.min(debtors[i].amount, creditors[j].amount);
+                if (amount > 0.01) {
+                    settlements.push({
+                        from: debtors[i].name,
+                        to: creditors[j].name,
+                        amount: amount
+                    });
+                }
+                debtors[i].amount -= amount;
+                creditors[j].amount -= amount;
+                if (debtors[i].amount < 0.01) i++;
+                if (creditors[j].amount < 0.01) j++;
+            }
+
+            return { balances, settlements };
+        }
+
+        function render() {
+            // Participants
+            const pList = document.getElementById('participantsList');
+            if (participants.length === 0) {
+                pList.innerHTML = '<span class="empty-state">Ingen deltakere lagt til ennå</span>';
+            } else {
+                pList.innerHTML = participants.map(p =>
+                    `<span class="participant-tag">${p}<button onclick="removeParticipant('${p.replace(/'/g, "\\'")}")">&times;</button></span>`
+                ).join('');
+            }
+
+            // Payer dropdown
+            const payerSelect = document.getElementById('expensePayer');
+            const currentVal = payerSelect.value;
+            payerSelect.innerHTML = '<option value="">Hvem betalte?</option>' +
+                participants.map(p => `<option value="${p}" ${p === currentVal ? 'selected' : ''}>${p}</option>`).join('');
+
+            // Expenses list
+            const eList = document.getElementById('expensesList');
+            const totalBar = document.getElementById('totalBar');
+            if (expenses.length === 0) {
+                eList.innerHTML = '<div class="empty-state">Ingen utgifter registrert ennå</div>';
+                totalBar.style.display = 'none';
+            } else {
+                eList.innerHTML = expenses.map(e =>
+                    `<div class="expense-item">
+                        <div class="expense-info">
+                            <strong>${e.description}</strong>
+                            <div class="expense-detail">${e.payer} &bull; ${e.date}</div>
+                        </div>
+                        <span class="expense-amount">${e.amount.toFixed(2)} kr</span>
+                        <button class="btn-danger" onclick="removeExpense(${e.id})">Slett</button>
+                    </div>`
+                ).join('');
+                const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+                document.getElementById('totalAmount').textContent = total.toFixed(2) + ' kr';
+                totalBar.style.display = 'flex';
+            }
+
+            // Balances & Settlements
+            const bList = document.getElementById('balanceList');
+            const sList = document.getElementById('settlementList');
+            const { balances, settlements } = calculateBalances();
+
+            if (Object.keys(balances).length === 0) {
+                bList.innerHTML = '<div class="empty-state">Legg til deltakere og utgifter for å se oppgjøret</div>';
+                sList.innerHTML = '';
+            } else {
+                bList.innerHTML = Object.entries(balances).map(([name, amount]) => {
+                    let cls = 'balance-zero';
+                    let prefix = '±';
+                    if (amount > 0.01) { cls = 'balance-positive'; prefix = '+'; }
+                    else if (amount < -0.01) { cls = 'balance-negative'; prefix = ''; }
+                    return `<div class="balance-item ${cls}">
+                        <span>${name}</span>
+                        <strong>${prefix}${amount.toFixed(2)} kr</strong>
+                    </div>`;
+                }).join('');
+
+                if (settlements.length > 0) {
+                    sList.innerHTML = '<h3 style="font-size:1rem; color:#744210; margin-bottom:8px;">💸 For å gjøre opp:</h3>' +
+                        settlements.map(s =>
+                            `<div class="settlement-item"><strong>${s.from}</strong> betaler <strong>${s.to}</strong>: <strong>${s.amount.toFixed(2)} kr</strong></div>`
+                        ).join('');
+                } else {
+                    sList.innerHTML = '';
+                }
+            }
+        }
+
+        function resetAll() {
+            if (!confirm('Er du sikker på at du vil slette alle deltakere og utgifter?')) return;
+            participants = [];
+            expenses = [];
+            save();
+            render();
+        }
+
+        render();
+    </script>
+</body>
+</html>
