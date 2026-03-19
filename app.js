@@ -233,6 +233,7 @@ function afterAddressesLoaded() {
         activeAddressId = null;
         addressConfig = {};
         yearDataCache = {};
+        setSyncStatus('ok', '');
         updateUI();
         render();
         return;
