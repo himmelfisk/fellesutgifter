@@ -141,7 +141,7 @@ async function githubWrite(path, data, sha, message, env) {
   const body = { message: message || `Oppdater ${path}`, content };
   if (sha) body.sha = sha;
 
-  const res = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`, {
+  let res = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`, {
     method: 'PUT',
     headers: {
       'Accept': 'application/vnd.github.v3+json',
@@ -151,6 +151,29 @@ async function githubWrite(path, data, sha, message, env) {
     },
     body: JSON.stringify(body)
   });
+
+  // Handle 409 SHA conflict by fetching current SHA and retrying once
+  if (res.status === 409) {
+    const freshRes = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`, {
+      headers: { 'Accept': 'application/vnd.github.v3+json', 'Authorization': `token ${env.GITHUB_TOKEN}`, 'User-Agent': 'FellesutgifterWorker' }
+    });
+    if (freshRes.ok) {
+      const freshFile = await freshRes.json();
+      body.sha = freshFile.sha;
+    } else {
+      delete body.sha;
+    }
+    res = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        'Authorization': `token ${env.GITHUB_TOKEN}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'FellesutgifterWorker'
+      },
+      body: JSON.stringify(body)
+    });
+  }
 
   if (!res.ok) {
     const errText = await res.text();
