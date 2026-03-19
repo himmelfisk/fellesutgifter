@@ -4,487 +4,956 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fellesutgifter</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f0f4f8;
-            color: #2d3748;
-            line-height: 1.6;
-            padding: 20px;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            min-height: 100vh;
+            color: #333;
         }
 
-        .container {
-            max-width: 700px;
-            margin: 0 auto;
+        /* ---- Login overlay ---- */
+        .login-overlay {
+            position: fixed; inset: 0;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            display: flex; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .login-card {
+            background: #fff; border-radius: 20px; padding: 3rem; text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 420px; width: 90%;
+        }
+        .login-card h1 { color: #1e3c72; margin-bottom: 0.5rem; font-size: 1.8rem; }
+        .login-card p { color: #777; margin-bottom: 2rem; }
+        .login-card .g_id_signin { display: flex; justify-content: center; }
+
+        .dev-login { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #eee; }
+        .dev-login p { font-size: 0.8rem; color: #999; margin-bottom: 0.8rem; }
+        .dev-login input {
+            padding: 0.5rem 0.8rem; border: 2px solid #dde2e8; border-radius: 8px;
+            font-size: 0.9rem; width: 100%; margin-bottom: 0.5rem;
+        }
+        .dev-login button {
+            padding: 0.5rem 1.5rem; background: #555; color: #fff;
+            border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
         }
 
-        h1 {
-            text-align: center;
-            font-size: 2.2rem;
-            color: #2b6cb0;
-            margin-bottom: 8px;
+        /* ---- Top bar ---- */
+        .top-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1rem 2rem; flex-wrap: wrap; gap: 1rem;
         }
+        .top-bar h1 { color: #fff; font-size: 1.6rem; text-shadow: 0 2px 4px rgba(0,0,0,0.3); margin-bottom: 0; }
+        .top-right { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+        .user-info { color: rgba(255,255,255,0.85); font-size: 0.9rem; }
 
-        .subtitle {
-            text-align: center;
-            color: #718096;
-            margin-bottom: 32px;
-            font-size: 1rem;
+        .btn-logout {
+            padding: 0.4rem 1rem; background: rgba(255,255,255,0.15); color: #fff;
+            border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; cursor: pointer;
+            font-size: 0.85rem; font-weight: 600;
         }
+        .btn-logout:hover { background: rgba(255,255,255,0.25); }
+
+        .btn-admin {
+            padding: 0.5rem 1.2rem; color: #fff; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 0.9rem; font-weight: 600;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2); transition: transform 0.15s, box-shadow 0.2s;
+        }
+        .btn-admin:hover { transform: translateY(-1px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .btn-admin.ole { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+        .btn-admin.kenneth { background: linear-gradient(135deg, #7f8c8d, #95a5a6); }
+
+        /* ---- Sync status ---- */
+        .sync-status {
+            padding: 0.3rem 0.8rem; border-radius: 6px; font-size: 0.75rem;
+            font-weight: 600; color: #fff; display: inline-block;
+        }
+        .sync-ok { background: #27ae60; }
+        .sync-err { background: #e74c3c; }
+        .sync-loading { background: #f39c12; }
+
+        /* ---- Container ---- */
+        .container { max-width: 960px; margin: 0 auto; padding: 0 2rem 2rem; }
 
         .card {
-            background: #fff;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            background: #fff; border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2); padding: 2rem; margin-bottom: 2rem;
         }
-
         .card h2 {
-            font-size: 1.2rem;
-            color: #2b6cb0;
-            margin-bottom: 16px;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 8px;
+            margin-bottom: 1.5rem; color: #1e3c72; font-size: 1.3rem;
+            border-bottom: 2px solid #e8ecf1; padding-bottom: 0.5rem;
+        }
+        .card h3 { margin: 1.5rem 0 0.8rem; color: #1e3c72; font-size: 1.1rem; }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 2rem; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-weight: 600; margin-bottom: 0.3rem; color: #555; font-size: 0.9rem; }
+        .form-group input {
+            padding: 0.6rem 0.8rem; border: 2px solid #dde2e8; border-radius: 8px;
+            font-size: 1rem; transition: border-color 0.2s;
+        }
+        .form-group input:focus {
+            outline: none; border-color: #2a5298;
+            box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.15);
         }
 
-        .input-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
+        /* Extra costs table */
+        .extra-costs-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+        .extra-costs-table th {
+            text-align: left; padding: 0.4rem 0.5rem; font-size: 0.85rem;
+            color: #555; border-bottom: 2px solid #e8ecf1;
         }
+        .extra-costs-table td { padding: 0.3rem 0.5rem; }
+        .extra-costs-table input {
+            width: 100%; padding: 0.45rem 0.6rem; border: 2px solid #dde2e8;
+            border-radius: 6px; font-size: 0.9rem; transition: border-color 0.2s;
+        }
+        .extra-costs-table input:focus {
+            outline: none; border-color: #2a5298;
+            box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.15);
+        }
+        .extra-costs-table td:first-child { width: 60%; }
+        .extra-costs-table td:last-child { width: 40%; }
 
-        input, select {
-            padding: 10px 14px;
-            border: 1px solid #cbd5e0;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            outline: none;
-            transition: border-color 0.2s;
+        /* Tenants table in form */
+        .tenants-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+        .tenants-table th {
+            text-align: left; padding: 0.4rem 0.5rem; font-size: 0.85rem;
+            color: #555; border-bottom: 2px solid #e8ecf1;
         }
+        .tenants-table td { padding: 0.35rem 0.5rem; }
+        .tenants-table .code {
+            font-weight: 700; color: #1e3c72; font-size: 0.85rem; min-width: 50px;
+        }
+        .tenants-table input {
+            width: 100%; padding: 0.45rem 0.6rem; border: 2px solid #dde2e8;
+            border-radius: 6px; font-size: 0.9rem;
+        }
+        .tenants-table input:focus {
+            outline: none; border-color: #2a5298;
+            box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.15);
+        }
+        .tenants-table input[type="number"] { width: 90px; text-align: right; }
 
-        input:focus, select:focus {
-            border-color: #4299e1;
-        }
-
-        input[type="text"], input[type="number"] {
-            flex: 1;
-            min-width: 120px;
-        }
-
-        select {
-            flex: 1;
-            min-width: 120px;
-            background: #fff;
-        }
+        .btn-row { display: flex; gap: 1rem; margin-top: 1.5rem; justify-content: flex-end; }
 
         button {
-            padding: 10px 20px;
-            background: #4299e1;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: background 0.2s;
-            white-space: nowrap;
+            padding: 0.7rem 1.8rem; border: none; border-radius: 8px; font-size: 1rem;
+            font-weight: 600; cursor: pointer; transition: transform 0.1s, box-shadow 0.2s;
+        }
+        button:active { transform: scale(0.97); }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2a5298, #1e3c72); color: #fff;
+            box-shadow: 0 4px 12px rgba(30, 60, 114, 0.3);
+        }
+        .btn-primary:hover { box-shadow: 0 6px 20px rgba(30, 60, 114, 0.4); }
+        .btn-secondary { background: #95a5a6; color: #fff; }
+
+        .btn-pdf {
+            padding: 0.45rem 1rem; background: linear-gradient(135deg, #8e44ad, #9b59b6);
+            color: #fff; border: none; border-radius: 8px; cursor: pointer;
+            font-size: 0.85rem; font-weight: 600; box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+            float: right; margin-bottom: 1rem;
+        }
+        .btn-pdf:hover { box-shadow: 0 5px 15px rgba(0,0,0,0.25); }
+
+        .action-btn {
+            float: right; padding: 0.4rem 1rem; font-size: 0.85rem; margin-bottom: 1rem;
         }
 
-        button:hover {
-            background: #3182ce;
+        /* Tabs */
+        .tabs-container { margin-top: 2rem; }
+        .tab-bar { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0; }
+
+        .tab-btn {
+            padding: 0.6rem 1.4rem; background: rgba(255,255,255,0.2); color: #fff;
+            border: none; border-radius: 10px 10px 0 0; font-size: 0.95rem;
+            font-weight: 600; cursor: pointer; transition: background 0.2s;
+        }
+        .tab-btn:hover { background: rgba(255,255,255,0.35); }
+        .tab-btn.active {
+            background: #fff; color: #1e3c72; box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
         }
 
-        .btn-danger {
-            background: #fc8181;
-            padding: 6px 12px;
-            font-size: 0.85rem;
+        .tab-content {
+            background: #fff; border-radius: 0 16px 16px 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2); padding: 2rem;
+            animation: fadeIn 0.3s ease;
         }
 
-        .btn-danger:hover {
-            background: #f56565;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .btn-secondary {
-            background: #a0aec0;
-        }
+        .tab-content h3 { color: #1e3c72; margin-bottom: 0.5rem; font-size: 1.2rem; }
 
-        .btn-secondary:hover {
-            background: #718096;
+        .summary {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.8rem; margin-bottom: 1.5rem;
         }
-
-        .participants-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 12px;
+        .summary-item { background: #f0f4f8; border-radius: 10px; padding: 0.8rem 1rem; }
+        .summary-item .label {
+            font-size: 0.8rem; color: #777; text-transform: uppercase; letter-spacing: 0.5px;
         }
+        .summary-item .value { font-size: 1.2rem; font-weight: 700; color: #1e3c72; }
 
-        .participant-tag {
-            background: #ebf8ff;
-            color: #2b6cb0;
-            padding: 6px 12px;
-            border-radius: 20px;
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        thead th {
+            background: linear-gradient(135deg, #2a5298, #1e3c72); color: #fff;
+            padding: 0.8rem 0.6rem; text-align: right; font-size: 0.85rem;
+        }
+        thead th:first-child { text-align: left; border-radius: 8px 0 0 0; }
+        thead th:last-child { border-radius: 0 8px 0 0; }
+        thead th .pct { display: block; font-weight: 400; font-size: 0.7rem; opacity: 0.8; }
+
+        tbody td {
+            padding: 0.6rem 0.6rem; text-align: right; border-bottom: 1px solid #eef1f5;
             font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        }
+        tbody td:first-child { text-align: left; font-weight: 600; color: #555; }
+        tbody tr:hover { background: #f7f9fc; }
+
+        tfoot td {
+            padding: 0.7rem 0.6rem; text-align: right; font-weight: 700;
+            border-top: 2px solid #1e3c72; color: #1e3c72; font-size: 0.95rem;
+        }
+        tfoot td:first-child { text-align: left; }
+
+        .no-data { text-align: center; color: #999; padding: 3rem; font-size: 1.1rem; }
+
+        @media (max-width: 600px) {
+            .form-grid { grid-template-columns: 1fr; }
+            body { padding: 0; }
+            .top-bar { padding: 1rem; }
+            .container { padding: 0 1rem 1rem; }
+            .card { padding: 1.2rem; }
+            .tab-content { padding: 1.2rem; }
+            table { font-size: 0.8rem; }
+            thead th, tbody td, tfoot td { padding: 0.4rem; }
+            .top-bar h1 { font-size: 1.2rem; }
+            .tenants-table input[type="number"] { width: 70px; }
         }
 
-        .participant-tag button {
-            background: none;
-            color: #e53e3e;
-            padding: 0;
-            font-size: 1.1rem;
-            line-height: 1;
-        }
-
-        .participant-tag button:hover {
-            color: #c53030;
-            background: none;
-        }
-
-        .expense-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #e2e8f0;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .expense-item:last-child {
-            border-bottom: none;
-        }
-
-        .expense-info {
-            flex: 1;
-        }
-
-        .expense-info strong {
-            color: #2d3748;
-        }
-
-        .expense-info .expense-detail {
-            color: #718096;
-            font-size: 0.85rem;
-        }
-
-        .expense-amount {
-            font-weight: 700;
-            color: #2b6cb0;
-            font-size: 1.1rem;
-            margin-right: 10px;
-        }
-
-        .balance-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 16px;
-            margin-bottom: 8px;
-            border-radius: 8px;
-            font-size: 0.95rem;
-        }
-
-        .balance-positive {
-            background: #f0fff4;
-            color: #276749;
-        }
-
-        .balance-negative {
-            background: #fff5f5;
-            color: #c53030;
-        }
-
-        .balance-zero {
-            background: #f7fafc;
-            color: #718096;
-        }
-
-        .settlement-item {
-            padding: 10px 16px;
-            background: #fffff0;
-            border-left: 4px solid #ecc94b;
-            border-radius: 0 8px 8px 0;
-            margin-bottom: 8px;
-            font-size: 0.95rem;
-        }
-
-        .empty-state {
-            text-align: center;
-            color: #a0aec0;
-            padding: 20px;
-            font-style: italic;
-        }
-
-        .total-bar {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            margin-top: 8px;
-            border-top: 2px solid #e2e8f0;
-            font-weight: 600;
-        }
-
-        .actions-row {
-            display: flex;
-            gap: 10px;
-            margin-top: 16px;
-            justify-content: flex-end;
-        }
-
-        @media (max-width: 500px) {
-            h1 { font-size: 1.6rem; }
-            .card { padding: 16px; }
-            .input-row { flex-direction: column; }
-            button { width: 100%; }
+        @media print {
+            body { background: #fff !important; padding: 0 !important; }
+            .top-bar, #form-card, .tab-bar, .btn-pdf, .action-btn,
+            .btn-logout, .btn-admin, .sync-status, #login-overlay { display: none !important; }
+            .container { max-width: 100%; padding: 1rem; }
+            .tab-content {
+                box-shadow: none !important; border-radius: 0 !important;
+                padding: 0 !important; break-inside: avoid;
+            }
+            .tabs-container { margin-top: 0; }
+            .summary-item { border: 1px solid #ddd; }
+            thead th {
+                background: #1e3c72 !important;
+                -webkit-print-color-adjust: exact; print-color-adjust: exact;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>💰 Fellesutgifter</h1>
-        <p class="subtitle">Hold oversikt over felles utgifter og gjør opp enkelt</p>
 
-        <!-- Deltakere -->
-        <div class="card">
-            <h2>👥 Deltakere</h2>
-            <div class="input-row">
-                <input type="text" id="participantName" placeholder="Navn..." onkeydown="if(event.key==='Enter') addParticipant()">
-                <button onclick="addParticipant()">Legg til</button>
-            </div>
-            <div class="participants-list" id="participantsList"></div>
+<!-- Login overlay -->
+<div id="login-overlay" class="login-overlay">
+    <div class="login-card">
+        <h1>&#127968; Fellesutgifter</h1>
+        <p>Logg inn med Google for å se kostnadsfordelingen</p>
+        <div id="google-signin-btn"></div>
+        <div id="dev-login" class="dev-login" style="display:none;">
+            <p>&#9888;&#65039; Utviklermodus (Google Sign-In ikke tilgjengelig)</p>
+            <input type="email" id="dev-email" placeholder="Skriv inn e-postadresse">
+            <input type="text" id="dev-name" placeholder="Navn (valgfritt)">
+            <button onclick="devLogin()">Logg inn</button>
         </div>
+    </div>
+</div>
 
-        <!-- Legg til utgift -->
-        <div class="card">
-            <h2>➕ Legg til utgift</h2>
-            <div class="input-row">
-                <select id="expensePayer">
-                    <option value="">Hvem betalte?</option>
-                </select>
-                <input type="number" id="expenseAmount" placeholder="Beløp (kr)" min="0" step="0.01" onkeydown="if(event.key==='Enter') addExpense()">
-            </div>
-            <div class="input-row">
-                <input type="text" id="expenseDescription" placeholder="Beskrivelse (valgfritt)" onkeydown="if(event.key==='Enter') addExpense()">
-                <button onclick="addExpense()">Legg til utgift</button>
-            </div>
-        </div>
-
-        <!-- Utgiftsliste -->
-        <div class="card">
-            <h2>📋 Utgifter</h2>
-            <div id="expensesList"></div>
-            <div class="total-bar" id="totalBar" style="display:none;">
-                <span>Totalt:</span>
-                <span id="totalAmount"></span>
-            </div>
-        </div>
-
-        <!-- Oppgjør -->
-        <div class="card">
-            <h2>⚖️ Balanse og oppgjør</h2>
-            <div id="balanceList"></div>
-            <div id="settlementList" style="margin-top: 16px;"></div>
-        </div>
-
-        <!-- Handlinger -->
-        <div class="actions-row">
-            <button class="btn-secondary" onclick="resetAll()">🗑️ Nullstill alt</button>
+<!-- Main content -->
+<div id="main-content" style="display:none;">
+    <div class="top-bar">
+        <h1>Fellesutgifter</h1>
+        <div class="top-right">
+            <span id="sync-status"></span>
+            <button id="admin-btn" class="btn-admin" style="display:none;" onclick="toggleForm()">&#9881;&#65039; Administrer</button>
+            <span id="user-info" class="user-info"></span>
+            <button class="btn-logout" onclick="logout()">Logg ut</button>
         </div>
     </div>
 
-    <script>
-        let participants = JSON.parse(localStorage.getItem('fe_participants') || '[]');
-        let expenses = JSON.parse(localStorage.getItem('fe_expenses') || '[]');
+    <div class="container">
+        <!-- Admin form -->
+        <div id="form-card" class="card" style="display:none;">
+            <h2>Legg til / oppdater år</h2>
 
-        function save() {
-            localStorage.setItem('fe_participants', JSON.stringify(participants));
-            localStorage.setItem('fe_expenses', JSON.stringify(expenses));
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="inp-year">År</label>
+                    <input type="number" id="inp-year" placeholder="2026" min="2000" max="2100">
+                </div>
+                <div class="form-group">
+                    <label for="inp-if">IF (forsikring)</label>
+                    <input type="number" id="inp-if" placeholder="0" step="any">
+                </div>
+                <div class="form-group">
+                    <label for="inp-kommunale">Kommunale avgifter</label>
+                    <input type="number" id="inp-kommunale" placeholder="0" step="any">
+                </div>
+                <div class="form-group">
+                    <label for="inp-anticimex">Anticimex</label>
+                    <input type="number" id="inp-anticimex" placeholder="0" step="any">
+                </div>
+                <div class="form-group">
+                    <label for="inp-uforutsett">Uforutsett</label>
+                    <input type="number" id="inp-uforutsett" placeholder="0" step="any">
+                </div>
+            </div>
+
+            <!-- Extra cost rows -->
+            <h3>Ekstra kostnader</h3>
+            <table class="extra-costs-table">
+                <thead><tr><th>Beskrivelse</th><th>Kostnad</th></tr></thead>
+                <tbody id="extra-costs-body"></tbody>
+            </table>
+
+            <!-- Tenant fields with editable percentages -->
+            <h3>Beboer og brøk</h3>
+            <table class="tenants-table">
+                <thead><tr><th>Kode</th><th>Navn</th><th>Andel (%)</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td class="code">K0101</td>
+                        <td><input type="text" id="tenant-K0101" value="Kenneth"></td>
+                        <td><input type="number" id="pct-K0101" value="22.19" step="0.01" min="0" max="100"></td>
+                    </tr>
+                    <tr>
+                        <td class="code">H0101</td>
+                        <td><input type="text" id="tenant-H0101" value="Ole"></td>
+                        <td><input type="number" id="pct-H0101" value="28.64" step="0.01" min="0" max="100"></td>
+                    </tr>
+                    <tr>
+                        <td class="code">H0102</td>
+                        <td><input type="text" id="tenant-H0102" value="Theodor"></td>
+                        <td><input type="number" id="pct-H0102" value="27.76" step="0.01" min="0" max="100"></td>
+                    </tr>
+                    <tr>
+                        <td class="code">L0101</td>
+                        <td><input type="text" id="tenant-L0101" value="Lis"></td>
+                        <td><input type="number" id="pct-L0101" value="21.41" step="0.01" min="0" max="100"></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="btn-row">
+                <button class="btn-secondary" onclick="clearForm()">Tøm skjema</button>
+                <button class="btn-primary" onclick="saveYear()">Lagre</button>
+            </div>
+        </div>
+
+        <!-- Data display -->
+        <div class="tabs-container" id="tabs-container">
+            <div class="no-data">Laster data...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ================================================
+       KONFIGURASJON
+       ================================================ */
+    var GOOGLE_CLIENT_ID = 'REPLACE_WITH_YOUR_CLIENT_ID.apps.googleusercontent.com';
+
+    var GITHUB_REPO = 'himmelfisk/fellesutgifter';
+    var GITHUB_DATA_FILE = 'data.json';
+
+    var ADMIN_EMAILS = [
+        'k.a.lorgen@gmail.com',
+        'ole.richard.oien@gmail.com'
+    ];
+
+    var NUM_EXTRA_ROWS = 10;
+
+    var DEFAULT_TENANTS = [
+        { code: 'K0101', defaultName: 'Kenneth', pct: 22.19 },
+        { code: 'H0101', defaultName: 'Ole',     pct: 28.64 },
+        { code: 'H0102', defaultName: 'Theodor', pct: 27.76 },
+        { code: 'L0101', defaultName: 'Lis',     pct: 21.41 }
+    ];
+
+    var COST_FIELDS = [
+        { key: 'if_cost',    label: 'IF (forsikring)' },
+        { key: 'kommunale',  label: 'Kommunale avgifter' },
+        { key: 'anticimex',  label: 'Anticimex' },
+        { key: 'uforutsett', label: 'Uforutsett' }
+    ];
+
+    var STORAGE_KEY = 'fellesutgifter_data';
+    var TOKEN_KEY = 'fellesutgifter_gh_token';
+
+    /* ================================================
+       STATE
+       ================================================ */
+    var currentUser = null;
+    var isAdmin = false;
+    var activeTab = null;
+    var ghFileSha = null;  // SHA of data.json on GitHub (needed for updates)
+    var appData = {};      // The loaded data
+
+    /* ================================================
+       AUTHENTICATION
+       ================================================ */
+    function decodeJwt(token) {
+        var payload = token.split('.')[1];
+        var decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+        return JSON.parse(decoded);
+    }
+
+    function handleCredentialResponse(response) {
+        var info = decodeJwt(response.credential);
+        loginAs(info.email, info.name || info.email);
+    }
+
+    function loginAs(email, name) {
+        currentUser = { email: email.toLowerCase().trim(), name: name || email };
+        isAdmin = ADMIN_EMAILS.indexOf(currentUser.email) !== -1;
+
+        document.getElementById('login-overlay').style.display = 'none';
+        document.getElementById('main-content').style.display = 'block';
+        document.getElementById('user-info').textContent = currentUser.name;
+
+        var adminBtn = document.getElementById('admin-btn');
+        if (isAdmin) {
+            adminBtn.style.display = 'inline-block';
+            adminBtn.className = 'btn-admin ' +
+                (currentUser.email === 'ole.richard.oien@gmail.com' ? 'ole' : 'kenneth');
+        } else {
+            adminBtn.style.display = 'none';
         }
 
-        function addParticipant() {
-            const input = document.getElementById('participantName');
-            const name = input.value.trim();
-            if (!name) return;
-            if (participants.find(p => p.toLowerCase() === name.toLowerCase())) {
-                alert('Denne deltakeren finnes allerede!');
-                return;
-            }
-            participants.push(name);
-            input.value = '';
-            save();
-            render();
-        }
+        loadAllData();
+    }
 
-        function removeParticipant(name) {
-            if (expenses.some(e => e.payer === name)) {
-                if (!confirm(`${name} har utgifter registrert. Fjerne deltaker og tilhørende utgifter?`)) return;
-                expenses = expenses.filter(e => e.payer !== name);
-            }
-            participants = participants.filter(p => p !== name);
-            save();
-            render();
-        }
+    function devLogin() {
+        var email = document.getElementById('dev-email').value.trim();
+        var name = document.getElementById('dev-name').value.trim();
+        if (!email) { alert('Skriv inn en e-postadresse.'); return; }
+        loginAs(email, name || email);
+    }
 
-        function addExpense() {
-            const payer = document.getElementById('expensePayer').value;
-            const amount = parseFloat(document.getElementById('expenseAmount').value);
-            const description = document.getElementById('expenseDescription').value.trim();
+    function logout() {
+        currentUser = null;
+        isAdmin = false;
+        document.getElementById('login-overlay').style.display = 'flex';
+        document.getElementById('main-content').style.display = 'none';
+        document.getElementById('form-card').style.display = 'none';
+    }
 
-            if (!payer) { alert('Velg hvem som betalte!'); return; }
-            if (!amount || amount <= 0) { alert('Skriv inn et gyldig beløp!'); return; }
-
-            expenses.push({
-                id: Date.now(),
-                payer,
-                amount,
-                description: description || 'Utgift',
-                date: new Date().toLocaleDateString('no-NO')
+    /* ================================================
+       GOOGLE SIGN-IN
+       ================================================ */
+    function initGoogleSignIn() {
+        if (typeof google !== 'undefined' && google.accounts) {
+            google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: handleCredentialResponse
             });
+            google.accounts.id.renderButton(
+                document.getElementById('google-signin-btn'),
+                { theme: 'outline', size: 'large', text: 'signin_with', locale: 'no' }
+            );
+        } else {
+            document.getElementById('dev-login').style.display = 'block';
+        }
+    }
 
-            document.getElementById('expenseAmount').value = '';
-            document.getElementById('expenseDescription').value = '';
-            save();
+    window.addEventListener('load', function() {
+        buildExtraCostRows();
+        setTimeout(initGoogleSignIn, 500);
+        setTimeout(function() { if (!currentUser) initGoogleSignIn(); }, 2000);
+    });
+
+    /* ================================================
+       EXTRA COST ROWS
+       ================================================ */
+    function buildExtraCostRows() {
+        var tbody = document.getElementById('extra-costs-body');
+        var html = '';
+        for (var i = 0; i < NUM_EXTRA_ROWS; i++) {
+            html += '<tr>'
+                + '<td><input type="text" id="extra-desc-' + i + '" placeholder="Beskrivelse"></td>'
+                + '<td><input type="number" id="extra-cost-' + i + '" placeholder="0" step="any"></td>'
+                + '</tr>';
+        }
+        tbody.innerHTML = html;
+    }
+
+    /* ================================================
+       GITHUB DATA — Read & Write data.json
+       ================================================ */
+    function setSyncStatus(type, text) {
+        var el = document.getElementById('sync-status');
+        el.className = 'sync-status sync-' + type;
+        el.textContent = text;
+    }
+
+    function getGitHubToken() {
+        return sessionStorage.getItem(TOKEN_KEY) || '';
+    }
+
+    function promptForToken() {
+        var token = prompt(
+            'For å lagre data til GitHub trenger du en Personal Access Token.\n\n'
+            + '1. Gå til github.com → Settings → Developer Settings → Personal Access Tokens (classic)\n'
+            + '2. Opprett en token med "repo" scope\n'
+            + '3. Lim inn tokenet her:\n\n'
+            + '(Tokenet lagres kun i denne nettleserøkten og forsvinner når du lukker fanen.)'
+        );
+        if (token) {
+            sessionStorage.setItem(TOKEN_KEY, token.trim());
+        }
+        return token ? token.trim() : '';
+    }
+
+    function fetchGitHubData() {
+        return fetch('https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + GITHUB_DATA_FILE, {
+            headers: { 'Accept': 'application/vnd.github.v3+json' },
+            cache: 'no-store'
+        })
+        .then(function(res) {
+            if (res.status === 404) {
+                ghFileSha = null;
+                return {};
+            }
+            if (!res.ok) throw new Error('GitHub read failed: ' + res.status);
+            return res.json();
+        })
+        .then(function(file) {
+            if (file.sha) {
+                ghFileSha = file.sha;
+                var content = atob(file.content.replace(/\n/g, ''));
+                return JSON.parse(content);
+            }
+            return {};
+        });
+    }
+
+    function writeGitHubData(data) {
+        var token = getGitHubToken();
+        if (!token) {
+            token = promptForToken();
+            if (!token) {
+                alert('Kan ikke lagre til GitHub uten token.');
+                return Promise.reject('no token');
+            }
+        }
+
+        var content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+        var body = {
+            message: 'Oppdater data ' + new Date().toISOString(),
+            content: content
+        };
+        if (ghFileSha) {
+            body.sha = ghFileSha;
+        }
+
+        setSyncStatus('loading', 'Lagrer...');
+
+        return fetch('https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + GITHUB_DATA_FILE, {
+            method: 'PUT',
+            headers: {
+                'Accept': 'application/vnd.github.v3+json',
+                'Authorization': 'token ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        })
+        .then(function(res) {
+            if (res.status === 401 || res.status === 403) {
+                sessionStorage.removeItem(TOKEN_KEY);
+                throw new Error('Ugyldig token. Prøv igjen.');
+            }
+            if (res.status === 409) {
+                // Conflict — re-fetch and retry
+                return fetchGitHubData().then(function() {
+                    return writeGitHubData(data);
+                });
+            }
+            if (!res.ok) throw new Error('GitHub write failed: ' + res.status);
+            return res.json();
+        })
+        .then(function(result) {
+            if (result.content) {
+                ghFileSha = result.content.sha;
+            }
+            setSyncStatus('ok', 'Lagret til GitHub');
+        })
+        .catch(function(err) {
+            setSyncStatus('err', 'Feil: ' + err.message);
+            throw err;
+        });
+    }
+
+    /* ================================================
+       DATA MANAGEMENT
+       ================================================ */
+    function loadAllData() {
+        setSyncStatus('loading', 'Henter data...');
+
+        fetchGitHubData()
+        .then(function(ghData) {
+            // Merge: GitHub data is the source of truth, local is fallback
+            var local = {};
+            try { local = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) {}
+            appData = Object.assign({}, local, ghData);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+            setSyncStatus('ok', 'Synkronisert');
             render();
-        }
-
-        function removeExpense(id) {
-            expenses = expenses.filter(e => e.id !== id);
-            save();
+        })
+        .catch(function() {
+            // Fallback to localStorage
+            try { appData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { appData = {}; }
+            setSyncStatus('err', 'Offline-modus');
             render();
+        });
+    }
+
+    function saveData(data) {
+        appData = data;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function fmt(n) {
+        return n.toLocaleString('nb-NO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function fmtPct(n) {
+        return n.toFixed(2).replace('.', ',') + ' %';
+    }
+
+    /* ================================================
+       TENANT HELPERS
+       ================================================ */
+    function getTenantsForYear(entry) {
+        var tenants = [];
+        for (var i = 0; i < DEFAULT_TENANTS.length; i++) {
+            var dt = DEFAULT_TENANTS[i];
+            var name = dt.defaultName;
+            var pct = dt.pct;
+            if (entry.tenants && entry.tenants[dt.code]) name = entry.tenants[dt.code];
+            if (entry.percentages && entry.percentages[dt.code] !== undefined) pct = entry.percentages[dt.code];
+            tenants.push({ code: dt.code, name: name, pct: pct });
+        }
+        return tenants;
+    }
+
+    /* ================================================
+       FORM ACTIONS
+       ================================================ */
+    function toggleForm() {
+        var card = document.getElementById('form-card');
+        card.style.display = card.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function saveYear() {
+        if (!isAdmin) return;
+        var year = document.getElementById('inp-year').value.trim();
+        if (!year || isNaN(parseInt(year))) {
+            alert('Vennligst fyll inn et gyldig år.');
+            return;
         }
 
-        function calculateBalances() {
-            if (participants.length === 0 || expenses.length === 0) return { balances: {}, settlements: [] };
+        var ifCost = parseFloat(document.getElementById('inp-if').value) || 0;
+        var kommunale = parseFloat(document.getElementById('inp-kommunale').value) || 0;
+        var anticimex = parseFloat(document.getElementById('inp-anticimex').value) || 0;
+        var uforutsett = parseFloat(document.getElementById('inp-uforutsett').value) || 0;
 
-            const total = expenses.reduce((sum, e) => sum + e.amount, 0);
-            const perPerson = total / participants.length;
-            const balances = {};
-
-            participants.forEach(p => {
-                const paid = expenses.filter(e => e.payer === p).reduce((sum, e) => sum + e.amount, 0);
-                balances[p] = paid - perPerson;
-            });
-
-            // Calculate settlements
-            const debtors = [];
-            const creditors = [];
-            participants.forEach(p => {
-                if (balances[p] < -0.01) debtors.push({ name: p, amount: -balances[p] });
-                else if (balances[p] > 0.01) creditors.push({ name: p, amount: balances[p] });
-            });
-
-            debtors.sort((a, b) => b.amount - a.amount);
-            creditors.sort((a, b) => b.amount - a.amount);
-
-            const settlements = [];
-            let i = 0, j = 0;
-            while (i < debtors.length && j < creditors.length) {
-                const amount = Math.min(debtors[i].amount, creditors[j].amount);
-                if (amount > 0.01) {
-                    settlements.push({
-                        from: debtors[i].name,
-                        to: creditors[j].name,
-                        amount: amount
-                    });
-                }
-                debtors[i].amount -= amount;
-                creditors[j].amount -= amount;
-                if (debtors[i].amount < 0.01) i++;
-                if (creditors[j].amount < 0.01) j++;
+        // Extra costs
+        var extras = [];
+        for (var i = 0; i < NUM_EXTRA_ROWS; i++) {
+            var desc = document.getElementById('extra-desc-' + i).value.trim();
+            var cost = parseFloat(document.getElementById('extra-cost-' + i).value) || 0;
+            if (desc && cost) {
+                extras.push({ desc: desc, cost: cost });
             }
-
-            return { balances, settlements };
         }
 
-        function render() {
-            // Participants
-            const pList = document.getElementById('participantsList');
-            if (participants.length === 0) {
-                pList.innerHTML = '<span class="empty-state">Ingen deltakere lagt til ennå</span>';
+        // Tenant names and percentages
+        var tenants = {};
+        var percentages = {};
+        for (var t = 0; t < DEFAULT_TENANTS.length; t++) {
+            var code = DEFAULT_TENANTS[t].code;
+            var nameVal = document.getElementById('tenant-' + code).value.trim();
+            tenants[code] = nameVal || DEFAULT_TENANTS[t].defaultName;
+            var pctVal = parseFloat(document.getElementById('pct-' + code).value);
+            percentages[code] = isNaN(pctVal) ? DEFAULT_TENANTS[t].pct : pctVal;
+        }
+
+        var data = Object.assign({}, appData);
+        data[year] = {
+            if_cost: ifCost,
+            kommunale: kommunale,
+            anticimex: anticimex,
+            uforutsett: uforutsett,
+            extras: extras,
+            tenants: tenants,
+            percentages: percentages
+        };
+        saveData(data);
+        render(year);
+        clearForm();
+
+        // Push to GitHub
+        writeGitHubData(data).catch(function(err) {
+            console.error('GitHub save error:', err);
+        });
+    }
+
+    function clearForm() {
+        document.getElementById('inp-year').value = '';
+        document.getElementById('inp-if').value = '';
+        document.getElementById('inp-kommunale').value = '';
+        document.getElementById('inp-anticimex').value = '';
+        document.getElementById('inp-uforutsett').value = '';
+
+        for (var i = 0; i < NUM_EXTRA_ROWS; i++) {
+            document.getElementById('extra-desc-' + i).value = '';
+            document.getElementById('extra-cost-' + i).value = '';
+        }
+
+        for (var t = 0; t < DEFAULT_TENANTS.length; t++) {
+            document.getElementById('tenant-' + DEFAULT_TENANTS[t].code).value = DEFAULT_TENANTS[t].defaultName;
+            document.getElementById('pct-' + DEFAULT_TENANTS[t].code).value = DEFAULT_TENANTS[t].pct;
+        }
+    }
+
+    function loadYearIntoForm(year) {
+        if (!isAdmin) return;
+        var entry = appData[year];
+        if (!entry) return;
+
+        document.getElementById('inp-year').value = year;
+        document.getElementById('inp-if').value = entry.if_cost || '';
+        document.getElementById('inp-kommunale').value = entry.kommunale || '';
+        document.getElementById('inp-anticimex').value = entry.anticimex || '';
+        document.getElementById('inp-uforutsett').value = entry.uforutsett || '';
+
+        var extras = entry.extras || [];
+        for (var i = 0; i < NUM_EXTRA_ROWS; i++) {
+            if (i < extras.length) {
+                document.getElementById('extra-desc-' + i).value = extras[i].desc || '';
+                document.getElementById('extra-cost-' + i).value = extras[i].cost || '';
             } else {
-                pList.innerHTML = participants.map(p =>
-                    `<span class="participant-tag">${p}<button onclick="removeParticipant('${p.replace(/'/g, "\\'")}")">&times;</button></span>`
-                ).join('');
-            }
-
-            // Payer dropdown
-            const payerSelect = document.getElementById('expensePayer');
-            const currentVal = payerSelect.value;
-            payerSelect.innerHTML = '<option value="">Hvem betalte?</option>' +
-                participants.map(p => `<option value="${p}" ${p === currentVal ? 'selected' : ''}>${p}</option>`).join('');
-
-            // Expenses list
-            const eList = document.getElementById('expensesList');
-            const totalBar = document.getElementById('totalBar');
-            if (expenses.length === 0) {
-                eList.innerHTML = '<div class="empty-state">Ingen utgifter registrert ennå</div>';
-                totalBar.style.display = 'none';
-            } else {
-                eList.innerHTML = expenses.map(e =>
-                    `<div class="expense-item">
-                        <div class="expense-info">
-                            <strong>${e.description}</strong>
-                            <div class="expense-detail">${e.payer} &bull; ${e.date}</div>
-                        </div>
-                        <span class="expense-amount">${e.amount.toFixed(2)} kr</span>
-                        <button class="btn-danger" onclick="removeExpense(${e.id})">Slett</button>
-                    </div>`
-                ).join('');
-                const total = expenses.reduce((sum, e) => sum + e.amount, 0);
-                document.getElementById('totalAmount').textContent = total.toFixed(2) + ' kr';
-                totalBar.style.display = 'flex';
-            }
-
-            // Balances & Settlements
-            const bList = document.getElementById('balanceList');
-            const sList = document.getElementById('settlementList');
-            const { balances, settlements } = calculateBalances();
-
-            if (Object.keys(balances).length === 0) {
-                bList.innerHTML = '<div class="empty-state">Legg til deltakere og utgifter for å se oppgjøret</div>';
-                sList.innerHTML = '';
-            } else {
-                bList.innerHTML = Object.entries(balances).map(([name, amount]) => {
-                    let cls = 'balance-zero';
-                    let prefix = '±';
-                    if (amount > 0.01) { cls = 'balance-positive'; prefix = '+'; }
-                    else if (amount < -0.01) { cls = 'balance-negative'; prefix = ''; }
-                    return `<div class="balance-item ${cls}">
-                        <span>${name}</span>
-                        <strong>${prefix}${amount.toFixed(2)} kr</strong>
-                    </div>`;
-                }).join('');
-
-                if (settlements.length > 0) {
-                    sList.innerHTML = '<h3 style="font-size:1rem; color:#744210; margin-bottom:8px;">💸 For å gjøre opp:</h3>' +
-                        settlements.map(s =>
-                            `<div class="settlement-item"><strong>${s.from}</strong> betaler <strong>${s.to}</strong>: <strong>${s.amount.toFixed(2)} kr</strong></div>`
-                        ).join('');
-                } else {
-                    sList.innerHTML = '';
-                }
+                document.getElementById('extra-desc-' + i).value = '';
+                document.getElementById('extra-cost-' + i).value = '';
             }
         }
 
-        function resetAll() {
-            if (!confirm('Er du sikker på at du vil slette alle deltakere og utgifter?')) return;
-            participants = [];
-            expenses = [];
-            save();
-            render();
+        var tenants = entry.tenants || {};
+        var percentages = entry.percentages || {};
+        for (var t = 0; t < DEFAULT_TENANTS.length; t++) {
+            var code = DEFAULT_TENANTS[t].code;
+            document.getElementById('tenant-' + code).value = tenants[code] || DEFAULT_TENANTS[t].defaultName;
+            document.getElementById('pct-' + code).value =
+                (percentages[code] !== undefined) ? percentages[code] : DEFAULT_TENANTS[t].pct;
         }
 
+        document.getElementById('form-card').style.display = 'block';
+    }
+
+    /* ================================================
+       PDF EXPORT
+       ================================================ */
+    function exportPdf(year) {
+        var entry = appData[year];
+        if (!entry) return;
+
+        var yearTenants = getTenantsForYear(entry);
+
+        var allCosts = [];
+        for (var fi = 0; fi < COST_FIELDS.length; fi++) {
+            allCosts.push({ label: COST_FIELDS[fi].label, value: entry[COST_FIELDS[fi].key] || 0 });
+        }
+        var extras = entry.extras || [];
+        for (var ei = 0; ei < extras.length; ei++) {
+            allCosts.push({ label: extras[ei].desc, value: extras[ei].cost });
+        }
+
+        var total = 0;
+        for (var ci = 0; ci < allCosts.length; ci++) total += allCosts[ci].value;
+
+        var h = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+            + '<title>Kostnadsoversikt ' + year + '</title>'
+            + '<style>'
+            + 'body{font-family:"Segoe UI",Tahoma,sans-serif;padding:2.5rem;color:#333;max-width:800px;margin:0 auto;}'
+            + 'h1{color:#1e3c72;font-size:1.6rem;margin-bottom:0.2rem;}'
+            + 'h2{color:#555;font-size:1rem;font-weight:400;margin-bottom:1.5rem;}'
+            + '.summary{display:flex;flex-wrap:wrap;gap:0.7rem;margin-bottom:1.5rem;}'
+            + '.s-item{background:#f0f4f8;border-radius:8px;padding:0.6rem 1rem;min-width:130px;}'
+            + '.s-item .lbl{font-size:0.72rem;color:#777;text-transform:uppercase;letter-spacing:0.3px;}'
+            + '.s-item .val{font-size:1.05rem;font-weight:700;color:#1e3c72;}'
+            + '.s-total{background:#1e3c72;color:#fff;}'
+            + '.s-total .lbl{color:rgba(255,255,255,0.7);}'
+            + '.s-total .val{color:#fff;}'
+            + 'table{width:100%;border-collapse:collapse;margin-top:1rem;}'
+            + 'thead th{background:#1e3c72;color:#fff;padding:0.6rem 0.5rem;text-align:right;font-size:0.82rem;'
+            + '-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+            + 'thead th:first-child{text-align:left;}'
+            + 'thead th .pct{display:block;font-weight:400;font-size:0.68rem;opacity:0.8;}'
+            + 'tbody td{padding:0.45rem 0.5rem;text-align:right;border-bottom:1px solid #eee;font-size:0.88rem;}'
+            + 'tbody td:first-child{text-align:left;font-weight:600;color:#555;}'
+            + 'tfoot td{padding:0.55rem 0.5rem;text-align:right;font-weight:700;border-top:2px solid #1e3c72;color:#1e3c72;font-size:0.9rem;}'
+            + 'tfoot td:first-child{text-align:left;}'
+            + '.footer{margin-top:2.5rem;font-size:0.72rem;color:#bbb;text-align:center;}'
+            + '@media print{body{padding:1.5rem;}thead th{background:#1e3c72 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
+            + '</style></head><body>';
+
+        h += '<h1>Kostnadsoversikt ' + year + '</h1>';
+        h += '<h2>Generert ' + new Date().toLocaleDateString('nb-NO') + '</h2>';
+
+        h += '<div class="summary">';
+        for (var si = 0; si < allCosts.length; si++) {
+            h += '<div class="s-item"><div class="lbl">' + allCosts[si].label + '</div><div class="val">kr ' + fmt(allCosts[si].value) + '</div></div>';
+        }
+        h += '<div class="s-item s-total"><div class="lbl">Totalt</div><div class="val">kr ' + fmt(total) + '</div></div>';
+        h += '</div>';
+
+        h += '<table><thead><tr><th>Kostnad (pr. mnd)</th>';
+        for (var ti = 0; ti < yearTenants.length; ti++) {
+            h += '<th>' + yearTenants[ti].name + '<span class="pct">' + fmtPct(yearTenants[ti].pct) + '</span></th>';
+        }
+        h += '</tr></thead><tbody>';
+
+        var pm = yearTenants.map(function() { return 0; });
+        for (var ri = 0; ri < allCosts.length; ri++) {
+            var monthly = allCosts[ri].value / 12;
+            h += '<tr><td>' + allCosts[ri].label + '</td>';
+            for (var pi = 0; pi < yearTenants.length; pi++) {
+                var share = monthly * yearTenants[pi].pct / 100;
+                pm[pi] += share;
+                h += '<td>kr ' + fmt(share) + '</td>';
+            }
+            h += '</tr>';
+        }
+
+        h += '</tbody><tfoot><tr><td>Sum pr. mnd</td>';
+        for (var mi = 0; mi < yearTenants.length; mi++) h += '<td>kr ' + fmt(pm[mi]) + '</td>';
+        h += '</tr><tr><td>Sum pr. år</td>';
+        for (var ai = 0; ai < yearTenants.length; ai++) h += '<td>kr ' + fmt(pm[ai] * 12) + '</td>';
+        h += '</tr></tfoot></table>';
+        h += '<div class="footer">Fellesutgifter &mdash; ' + year + '</div></body></html>';
+
+        var printWin = window.open('', '_blank', 'width=900,height=700');
+        printWin.document.write(h);
+        printWin.document.close();
+        printWin.focus();
+        setTimeout(function() { printWin.print(); }, 400);
+    }
+
+    /* ================================================
+       RENDER
+       ================================================ */
+    function render(selectYear) {
+        var data = appData;
+        var years = Object.keys(data).sort();
+        var container = document.getElementById('tabs-container');
+
+        if (years.length === 0) {
+            var msg = isAdmin
+                ? 'Ingen data lagt til enn\u00e5. Klikk \u00ab\u2699\ufe0f Administrer\u00bb og fyll inn skjemaet.'
+                : 'Ingen data tilgjengelig enn\u00e5.';
+            container.innerHTML = '<div class="no-data">' + msg + '</div>';
+            activeTab = null;
+            return;
+        }
+
+        if (selectYear) {
+            activeTab = String(selectYear);
+        } else if (!activeTab || years.indexOf(activeTab) === -1) {
+            activeTab = years[years.length - 1];
+        }
+
+        var tabBarHtml = '<div class="tab-bar">';
+        for (var yi = 0; yi < years.length; yi++) {
+            var y = years[yi];
+            var cls = y === activeTab ? 'tab-btn active' : 'tab-btn';
+            tabBarHtml += '<button class="' + cls + '" onclick="switchTab(\'' + y + '\')">' + y + '</button>';
+        }
+        tabBarHtml += '</div>';
+
+        var entry = data[activeTab];
+        var yearTenants = getTenantsForYear(entry);
+
+        var allCosts = [];
+        for (var fi = 0; fi < COST_FIELDS.length; fi++) {
+            allCosts.push({ label: COST_FIELDS[fi].label, value: entry[COST_FIELDS[fi].key] || 0 });
+        }
+        var extras = entry.extras || [];
+        for (var ei = 0; ei < extras.length; ei++) {
+            allCosts.push({ label: extras[ei].desc, value: extras[ei].cost });
+        }
+
+        var total = 0;
+        for (var ci = 0; ci < allCosts.length; ci++) total += allCosts[ci].value;
+
+        var html = tabBarHtml + '<div class="tab-content">';
+
+        html += '<button class="btn-pdf" onclick="exportPdf(\'' + activeTab + '\')">&#128196; Eksporter til PDF</button>';
+        if (isAdmin) {
+            html += '<button class="btn-secondary action-btn" style="margin-right:0.5rem" onclick="loadYearIntoForm(\'' + activeTab + '\')">Rediger</button>';
+        }
+        html += '<div style="clear:both;"></div>';
+
+        html += '<h3>Oversikt for ' + activeTab + '</h3>';
+
+        html += '<div class="summary">';
+        for (var si = 0; si < allCosts.length; si++) {
+            html += '<div class="summary-item"><div class="label">' + allCosts[si].label + '</div><div class="value">kr ' + fmt(allCosts[si].value) + '</div></div>';
+        }
+        html += '<div class="summary-item" style="background:#1e3c72;color:#fff;"><div class="label" style="color:rgba(255,255,255,0.7);">Totalt</div><div class="value" style="color:#fff;">kr ' + fmt(total) + '</div></div>';
+        html += '</div>';
+
+        html += '<table><thead><tr><th>Kostnad (pr. mnd)</th>';
+        for (var ti = 0; ti < yearTenants.length; ti++) {
+            html += '<th>' + yearTenants[ti].name + '<span class="pct">' + fmtPct(yearTenants[ti].pct) + '</span></th>';
+        }
+        html += '</tr></thead><tbody>';
+
+        var personTotalsMonthly = yearTenants.map(function() { return 0; });
+
+        for (var ri = 0; ri < allCosts.length; ri++) {
+            var val = allCosts[ri].value;
+            var monthly = val / 12;
+            html += '<tr><td>' + allCosts[ri].label + '</td>';
+            for (var pj = 0; pj < yearTenants.length; pj++) {
+                var share = monthly * yearTenants[pj].pct / 100;
+                personTotalsMonthly[pj] += share;
+                html += '<td>kr ' + fmt(share) + '</td>';
+            }
+            html += '</tr>';
+        }
+
+        html += '</tbody><tfoot><tr><td>Sum pr. mnd</td>';
+        for (var mi = 0; mi < yearTenants.length; mi++) {
+            html += '<td>kr ' + fmt(personTotalsMonthly[mi]) + '</td>';
+        }
+        html += '</tr><tr><td>Sum pr. \u00e5r</td>';
+        for (var ai = 0; ai < yearTenants.length; ai++) {
+            html += '<td>kr ' + fmt(personTotalsMonthly[ai] * 12) + '</td>';
+        }
+        html += '</tr></tfoot></table></div>';
+
+        container.innerHTML = html;
+    }
+
+    function switchTab(year) {
+        activeTab = String(year);
         render();
-    </script>
+    }
+</script>
+
 </body>
 </html>
