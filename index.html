@@ -50,12 +50,10 @@
             <h3>Administratorer (e-post)</h3>
             <div id="admin-emails-body" style="margin-bottom:0.5rem;"></div>
             <button class="btn-secondary" style="margin-bottom:1rem;" onclick="addAdmin()">+ Legg til administrator</button>
-            <div class="btn-row" style="margin-bottom:1.5rem;">
-                <button class="btn-primary" onclick="saveSetup()">Lagre innstillinger</button>
-            </div>
+
             <hr style="border:none;border-top:2px solid #e8ecf1;margin-bottom:1.5rem;">
 
-            <h2>Legg til / oppdater år</h2>
+            <h2 id="year-section-title">Legg til år</h2>
 
             <div class="form-group" style="max-width:200px;margin-bottom:1rem;">
                 <label for="inp-year">År</label>
@@ -83,7 +81,9 @@
 
             <div class="btn-row">
                 <button class="btn-secondary" onclick="clearForm()">Tøm skjema</button>
-                <button class="btn-primary" onclick="saveYear()">Lagre</button>
+                <button class="btn-danger" id="btn-delete-year" style="display:none;" onclick="deleteYear()">Slett år</button>
+                <button class="btn-secondary" id="btn-new-address" style="display:none;" onclick="newAddress()">+ Ny adresse</button>
+                <button class="btn-primary" onclick="saveAll()">Lagre</button>
             </div>
         </div>
 

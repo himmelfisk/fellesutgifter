@@ -24,6 +24,7 @@ var yearDataCache = {};      // {"2026": {costs:[...]}}
 var formCosts = [];          // [{desc, amount, invoice}]  — in-memory form state
 var ocrTargetIdx = -1;       // which cost row is being OCR'd
 var googleIdToken = null;    // Google credential for worker auth
+var editingYear = null;      // year being edited (locks year input)
 
 /* ================================================
    AUTHENTICATION
@@ -707,16 +708,22 @@ function getUnitsForDisplay() {
    ================================================ */
 function toggleForm() {
     var card = document.getElementById('form-card');
-    card.style.display = card.style.display === 'none' ? 'block' : 'none';
+    var show = card.style.display === 'none';
+    card.style.display = show ? 'block' : 'none';
+    if (show) updateFormButtons();
 }
 
 function saveSetup() {
-    if (!isAdmin) return;
+    // Legacy — now called from saveAll
+    return _saveSetupInner();
+}
+
+function _saveSetupInner() {
     var address = document.getElementById('cfg-address').value.trim();
-    if (!address) { alert('Vennligst fyll inn en adresse.'); return; }
+    if (!address) { alert('Vennligst fyll inn en adresse.'); return null; }
 
     var admins = collectAdminsFromForm();
-    if (admins.length === 0) { alert('Legg til minst \u00e9n administrator-e-post.'); return; }
+    if (admins.length === 0) { alert('Legg til minst \u00e9n administrator-e-post.'); return null; }
 
     var units = collectUnitsFromForm();
 
@@ -744,47 +751,50 @@ function saveSetup() {
         allAddresses.push({ id: activeAddressId, name: address });
     }
 
-    updateAdminState();
-    updateUI();
-    render();
-
-    setSyncStatus('loading', 'Lagrer...');
-    Promise.all([saveAddressConfig(), saveAddressesIndex()])
-    .then(function() { setSyncStatus('ok', 'Lagret'); })
-    .catch(function(err) { setSyncStatus('err', 'Feil: ' + (err.message || err)); });
+    return { admins: admins, units: units, address: address };
 }
 
-function saveYear() {
+function saveAll() {
     if (!isAdmin) return;
+
+    var setup = _saveSetupInner();
+    if (!setup) return;
+
     var year = document.getElementById('inp-year').value.trim();
-    if (!year || isNaN(parseInt(year))) { alert('Vennligst fyll inn et gyldig \u00e5r.'); return; }
-    if (!activeAddressId) { alert('Lagre innstillinger (adresse) f\u00f8rst.'); return; }
+    var hasYear = year && !isNaN(parseInt(year));
 
-    syncFormCostsFromDOM();
+    var saves = [saveAddressConfig(), saveAddressesIndex()];
 
-    var costs = [];
-    for (var i = 0; i < formCosts.length; i++) {
-        var c = formCosts[i];
-        if (c.desc || c.amount) {
-            costs.push({ desc: c.desc, amount: c.amount, invoice: c.invoice || null });
+    if (hasYear) {
+        if (!activeAddressId) { alert('Lagre adresse f\u00f8rst.'); return; }
+
+        syncFormCostsFromDOM();
+        var costs = [];
+        for (var i = 0; i < formCosts.length; i++) {
+            var c = formCosts[i];
+            if (c.desc || c.amount) {
+                costs.push({ desc: c.desc, amount: c.amount, invoice: c.invoice || null });
+            }
         }
+        yearDataCache[year] = { costs: costs };
+
+        if (!addressConfig.years) addressConfig.years = [];
+        if (addressConfig.years.indexOf(year) === -1) {
+            addressConfig.years.push(year);
+            addressConfig.years.sort();
+        }
+
+        saves.push(saveYearData(year));
+        activeTab = year;
     }
 
-    yearDataCache[year] = { costs: costs };
-
-    // Add year to config if not present
-    if (!addressConfig.years) addressConfig.years = [];
-    if (addressConfig.years.indexOf(year) === -1) {
-        addressConfig.years.push(year);
-        addressConfig.years.sort();
-    }
-
-    activeTab = year;
+    updateAdminState();
+    updateUI();
     render();
     clearForm();
 
     setSyncStatus('loading', 'Lagrer...');
-    Promise.all([saveYearData(year), saveAddressConfig()])
+    Promise.all(saves)
     .then(function() { setSyncStatus('ok', 'Lagret'); })
     .catch(function(err) {
         setSyncStatus('err', 'Feil: ' + (err.message || err));
@@ -792,10 +802,77 @@ function saveYear() {
     });
 }
 
+function deleteYear() {
+    if (!isAdmin || !editingYear) return;
+    var year = editingYear;
+    if (!confirm('Er du sikker p\u00e5 at du vil slette \u00e5r ' + year + ' og alle kostnader for dette \u00e5ret?')) return;
+
+    // Remove from config
+    if (addressConfig.years) {
+        var idx = addressConfig.years.indexOf(year);
+        if (idx !== -1) addressConfig.years.splice(idx, 1);
+    }
+
+    // Remove from cache
+    delete yearDataCache[year];
+
+    // Delete year file from GitHub
+    var path = yearFilePath(activeAddressId, year);
+
+    setSyncStatus('loading', 'Sletter...');
+    Promise.all([ghDeleteFile(path), saveAddressConfig()])
+    .then(function() {
+        activeTab = (addressConfig.years && addressConfig.years.length > 0) ? addressConfig.years[addressConfig.years.length - 1] : null;
+        clearForm();
+        updateUI();
+        render();
+        setSyncStatus('ok', 'Slettet');
+    })
+    .catch(function(err) {
+        setSyncStatus('err', 'Feil: ' + (err.message || err));
+    });
+}
+
+function newAddress() {
+    activeAddressId = null;
+    addressConfig = {};
+    yearDataCache = {};
+    fileShas = {};
+    activeTab = null;
+    editingYear = null;
+    document.getElementById('cfg-address').value = '';
+    document.getElementById('admin-emails-body').innerHTML = '';
+    document.getElementById('units-body').innerHTML = '';
+    clearForm();
+    addAdmin();
+    addUnit();
+    document.getElementById('form-card').style.display = 'block';
+    render();
+}
+
+function updateFormButtons() {
+    var delBtn = document.getElementById('btn-delete-year');
+    var titleEl = document.getElementById('year-section-title');
+    var newAddrBtn = document.getElementById('btn-new-address');
+    if (delBtn) delBtn.style.display = editingYear ? 'inline-block' : 'none';
+    if (titleEl) titleEl.textContent = editingYear ? ('Rediger ' + editingYear) : 'Legg til \u00e5r';
+    if (newAddrBtn) newAddrBtn.style.display = (allAddresses.length > 0 && !editingYear) ? 'inline-block' : 'none';
+}
+
+function saveYear() {
+    // Legacy compatibility — redirect to saveAll
+    saveAll();
+}
+
 function clearForm() {
-    document.getElementById('inp-year').value = new Date().getFullYear();
+    editingYear = null;
+    var inp = document.getElementById('inp-year');
+    inp.value = new Date().getFullYear();
+    inp.readOnly = false;
+    inp.style.opacity = '1';
     formCosts = [];
     renderCostsForm();
+    updateFormButtons();
 }
 
 function loadYearIntoForm(year) {
@@ -803,7 +880,11 @@ function loadYearIntoForm(year) {
     var data = yearDataCache[year];
     if (!data) return;
 
-    document.getElementById('inp-year').value = year;
+    editingYear = year;
+    var inp = document.getElementById('inp-year');
+    inp.value = year;
+    inp.readOnly = true;
+    inp.style.opacity = '0.6';
 
     formCosts = [];
     var costs = data.costs || [];
@@ -816,6 +897,7 @@ function loadYearIntoForm(year) {
     }
     renderCostsForm();
     document.getElementById('form-card').style.display = 'block';
+    updateFormButtons();
 }
 
 /* ================================================

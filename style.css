@@ -171,6 +171,8 @@ button:active { transform: scale(0.97); }
 }
 .btn-primary:hover { box-shadow: 0 6px 20px rgba(30, 60, 114, 0.4); }
 .btn-secondary { background: #95a5a6; color: #fff; }
+.btn-danger { background: #e74c3c; color: #fff; }
+.btn-danger:hover { background: #c0392b; }
 
 .btn-pdf {
     padding: 0.45rem 1rem; background: linear-gradient(135deg, #8e44ad, #9b59b6);
