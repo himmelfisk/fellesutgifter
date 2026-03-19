@@ -1,3 +1,19 @@
 {
-  "costs": []
+  "costs": [
+    {
+      "desc": "abc",
+      "amount": 22222,
+      "invoice": null
+    },
+    {
+      "desc": "def",
+      "amount": 222,
+      "invoice": null
+    },
+    {
+      "desc": "ghi",
+      "amount": 90028,
+      "invoice": null
+    }
+  ]
 }
