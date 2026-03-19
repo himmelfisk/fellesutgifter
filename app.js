@@ -37,6 +37,7 @@ function decodeJwt(token) {
 
 function handleCredentialResponse(response) {
     googleIdToken = response.credential;
+    sessionStorage.setItem('fellesutgifter_id_token', googleIdToken);
     var info = decodeJwt(response.credential);
     loginAs(info.email, info.name || info.email);
 }
@@ -65,9 +66,14 @@ function logout() {
     yearDataCache = {};
     formCosts = [];
     allAddresses = [];
+    googleIdToken = null;
+    sessionStorage.removeItem('fellesutgifter_id_token');
     document.getElementById('login-overlay').style.display = 'flex';
     document.getElementById('main-content').style.display = 'none';
     document.getElementById('form-card').style.display = 'none';
+    if (typeof google !== 'undefined' && google.accounts) {
+        google.accounts.id.disableAutoSelect();
+    }
 }
 
 /* ================================================
@@ -77,12 +83,29 @@ function initGoogleSignIn() {
     if (typeof google !== 'undefined' && google.accounts) {
         google.accounts.id.initialize({
             client_id: GOOGLE_CLIENT_ID,
-            callback: handleCredentialResponse
+            callback: handleCredentialResponse,
+            auto_select: true
         });
         google.accounts.id.renderButton(
             document.getElementById('google-signin-btn'),
             { theme: 'outline', size: 'large', text: 'signin_with', locale: 'no' }
         );
+        // Try restoring session from sessionStorage while waiting for auto_select
+        var cached = sessionStorage.getItem('fellesutgifter_id_token');
+        if (cached && !currentUser) {
+            try {
+                var info = decodeJwt(cached);
+                // Check token not expired (exp is in seconds)
+                if (info.exp && info.exp * 1000 > Date.now()) {
+                    googleIdToken = cached;
+                    loginAs(info.email, info.name || info.email);
+                } else {
+                    sessionStorage.removeItem('fellesutgifter_id_token');
+                }
+            } catch (e) {
+                sessionStorage.removeItem('fellesutgifter_id_token');
+            }
+        }
     } else {
         document.getElementById('dev-login').style.display = 'block';
     }
