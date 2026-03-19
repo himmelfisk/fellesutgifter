@@ -5,7 +5,7 @@ var GOOGLE_CLIENT_ID = '10152340554-g0bdlarlbf8tr4ldn31foq79uh0feqn8.apps.google
 var GITHUB_REPO = 'himmelfisk/fellesutgifter';
 var GITHUB_DATA_DIR = 'data';
 var ADDRESSES_FILE = 'data/addresses.json';
-var TOKEN_KEY = 'fellesutgifter_gh_token';
+var WORKER_URL = 'https://fellesutgifter-proxy.DITT-NAVN.workers.dev';
 var MAX_IMAGE_PX = 1200;
 var IMAGE_QUALITY = 0.7;
 
@@ -23,6 +23,7 @@ var addressConfig = {};      // {address, admins, units, years}
 var yearDataCache = {};      // {"2026": {costs:[...]}}
 var formCosts = [];          // [{desc, amount, invoice}]  — in-memory form state
 var ocrTargetIdx = -1;       // which cost row is being OCR'd
+var googleIdToken = null;    // Google credential for worker auth
 
 /* ================================================
    AUTHENTICATION
@@ -34,6 +35,7 @@ function decodeJwt(token) {
 }
 
 function handleCredentialResponse(response) {
+    googleIdToken = response.credential;
     var info = decodeJwt(response.credential);
     loginAs(info.email, info.name || info.email);
 }
@@ -99,22 +101,6 @@ function setSyncStatus(type, text) {
     el.textContent = text;
 }
 
-function getGitHubToken() {
-    return sessionStorage.getItem(TOKEN_KEY) || '';
-}
-
-function promptForToken() {
-    var token = prompt(
-        'For \u00e5 lagre data til GitHub trenger du en Personal Access Token.\n\n'
-        + '1. G\u00e5 til github.com \u2192 Settings \u2192 Developer Settings \u2192 Personal Access Tokens (classic)\n'
-        + '2. Opprett en token med "repo" scope\n'
-        + '3. Lim inn tokenet her:\n\n'
-        + '(Tokenet lagres kun i denne nettleser\u00f8kten og forsvinner n\u00e5r du lukker fanen.)'
-    );
-    if (token) sessionStorage.setItem(TOKEN_KEY, token.trim());
-    return token ? token.trim() : '';
-}
-
 function ghReadFile(path) {
     return fetch('https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + path, {
         headers: { 'Accept': 'application/vnd.github.v3+json' },
@@ -134,58 +120,46 @@ function ghReadFile(path) {
 }
 
 function ghWriteFile(path, data) {
-    var token = getGitHubToken();
-    if (!token) {
-        token = promptForToken();
-        if (!token) {
-            alert('Kan ikke lagre til GitHub uten token.');
-            return Promise.reject('no token');
-        }
+    if (!googleIdToken) {
+        alert('Du m\u00e5 v\u00e6re logget inn med Google for \u00e5 lagre.');
+        return Promise.reject('not authenticated');
     }
-    var content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
-    var body = { message: 'Oppdater ' + path + ' ' + new Date().toISOString(), content: content };
-    if (fileShas[path]) body.sha = fileShas[path];
-
-    return fetch('https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + path, {
-        method: 'PUT',
+    var body = {
+        action: 'write',
+        path: path,
+        data: data,
+        sha: fileShas[path] || null,
+        message: 'Oppdater ' + path + ' ' + new Date().toISOString()
+    };
+    return fetch(WORKER_URL, {
+        method: 'POST',
         headers: {
-            'Accept': 'application/vnd.github.v3+json',
-            'Authorization': 'token ' + token,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + googleIdToken
         },
         body: JSON.stringify(body)
     })
     .then(function(res) {
-        if (res.status === 401 || res.status === 403) {
-            sessionStorage.removeItem(TOKEN_KEY);
-            throw new Error('Ugyldig token.');
-        }
-        if (res.status === 409) {
-            return ghReadFile(path).then(function() { return ghWriteFile(path, data); });
-        }
-        if (!res.ok) throw new Error('GitHub write failed: ' + res.status);
+        if (res.status === 401) throw new Error('Innlogging utl\u00f8pt. Logg inn p\u00e5 nytt.');
+        if (res.status === 403) throw new Error('Du er ikke autorisert som administrator.');
+        if (!res.ok) return res.json().then(function(e) { throw new Error(e.error || 'Lagring feilet'); });
         return res.json();
     })
     .then(function(result) {
-        if (result && result.content) fileShas[path] = result.content.sha;
+        if (result && result.sha) fileShas[path] = result.sha;
     });
 }
 
 function ghDeleteFile(path) {
-    var token = getGitHubToken();
-    if (!token) {
-        token = promptForToken();
-        if (!token) return Promise.reject('no token');
-    }
+    if (!googleIdToken) return Promise.reject('not authenticated');
     if (!fileShas[path]) return Promise.resolve();
-    return fetch('https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + path, {
-        method: 'DELETE',
+    return fetch(WORKER_URL, {
+        method: 'POST',
         headers: {
-            'Accept': 'application/vnd.github.v3+json',
-            'Authorization': 'token ' + token,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + googleIdToken
         },
-        body: JSON.stringify({ message: 'Slett ' + path, sha: fileShas[path] })
+        body: JSON.stringify({ action: 'delete', path: path, sha: fileShas[path] })
     }).then(function(res) {
         if (res.ok) delete fileShas[path];
     });
