@@ -94,23 +94,48 @@ body {
     box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.15);
 }
 
-/* Extra costs table */
-.extra-costs-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
-.extra-costs-table th {
-    text-align: left; padding: 0.4rem 0.5rem; font-size: 0.85rem;
-    color: #555; border-bottom: 2px solid #e8ecf1;
+/* Dynamic cost rows */
+.cost-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 0; border-bottom: 1px solid #eef1f5;
 }
-.extra-costs-table td { padding: 0.3rem 0.5rem; }
-.extra-costs-table input {
-    width: 100%; padding: 0.45rem 0.6rem; border: 2px solid #dde2e8;
+.cost-row .cost-desc {
+    flex: 3; padding: 0.45rem 0.6rem; border: 2px solid #dde2e8;
     border-radius: 6px; font-size: 0.9rem; transition: border-color 0.2s;
 }
-.extra-costs-table input:focus {
+.cost-row .cost-amount {
+    flex: 1; min-width: 100px; padding: 0.45rem 0.6rem; border: 2px solid #dde2e8;
+    border-radius: 6px; font-size: 0.9rem; text-align: right; transition: border-color 0.2s;
+}
+.cost-row .cost-desc:focus, .cost-row .cost-amount:focus {
     outline: none; border-color: #2a5298;
     box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.15);
 }
-.extra-costs-table td:first-child { width: 60%; }
-.extra-costs-table td:last-child { width: 40%; }
+.cost-actions {
+    display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0;
+}
+.btn-inv-upload {
+    background: #3498db; color: #fff; border: none; border-radius: 6px;
+    width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0; transition: background 0.2s;
+}
+.btn-inv-upload:hover { background: #2980b9; }
+.invoice-thumb {
+    width: 32px; height: 32px; object-fit: cover; border-radius: 4px;
+    border: 2px solid #27ae60; cursor: pointer;
+}
+.btn-inv-remove {
+    background: #e67e22; color: #fff; border: none; border-radius: 6px;
+    width: 22px; height: 22px; font-size: 0.8rem; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0; transition: background 0.2s;
+}
+.btn-inv-remove:hover { background: #d35400; }
+.invoice-link {
+    display: block; font-size: 0.72rem; color: #2a5298;
+    margin-top: 0.2rem; cursor: pointer;
+}
 
 /* Tenants table in form */
 .tenants-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
@@ -233,25 +258,10 @@ tfoot td:first-child { text-align: left; }
     .tenants-table input[type="number"] { width: 70px; }
 }
 
-/* ---- Upload area ---- */
+/* ---- Upload desc ---- */
 .upload-desc {
     font-size: 0.9rem; color: #777; margin-bottom: 0.8rem; line-height: 1.5;
 }
-.upload-area {
-    border: 2px dashed #c5cdd8; border-radius: 12px; padding: 2rem;
-    text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s;
-    background: #f8fafc;
-}
-.upload-area:hover, .upload-area.drag-over {
-    border-color: #2a5298; background: #eef3fb;
-}
-.upload-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
-.upload-area p { color: #666; font-size: 0.95rem; margin: 0.2rem 0; }
-.upload-link {
-    color: #2a5298; font-weight: 600; cursor: pointer;
-    text-decoration: underline;
-}
-.upload-hint { font-size: 0.8rem !important; color: #aaa !important; margin-top: 0.3rem !important; }
 
 /* ---- OCR progress ---- */
 .progress-bar {
@@ -267,36 +277,7 @@ tfoot td:first-child { text-align: left; }
     font-size: 0.85rem; color: #777; margin-top: 0.4rem; text-align: center;
 }
 
-/* ---- OCR result ---- */
-.ocr-card {
-    border-radius: 12px; padding: 1.2rem; margin-top: 1rem;
-}
-.ocr-success { background: #e8f5e9; border: 1px solid #a5d6a7; }
-.ocr-warn { background: #fff8e1; border: 1px solid #ffe082; }
 
-.ocr-found { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-.ocr-amount { font-size: 1.6rem; font-weight: 700; color: #1e3c72; }
-.ocr-cat {
-    font-size: 0.9rem; font-weight: 600; color: #27ae60;
-    background: rgba(39,174,96,0.1); padding: 0.2rem 0.6rem; border-radius: 6px;
-}
-
-.ocr-buttons { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
-.ocr-buttons .btn-secondary { padding: 0.35rem 0.8rem; font-size: 0.82rem; }
-
-.ocr-result details { margin-top: 0.5rem; }
-.ocr-result summary {
-    cursor: pointer; font-size: 0.85rem; color: #2a5298; font-weight: 600;
-}
-.ocr-text {
-    background: #f5f5f5; border-radius: 8px; padding: 0.8rem;
-    font-size: 0.8rem; max-height: 200px; overflow-y: auto;
-    white-space: pre-wrap; word-break: break-word; margin-top: 0.5rem;
-    color: #555; line-height: 1.5;
-}
-.ocr-amounts-list { list-style: none; padding: 0; margin-top: 0.4rem; }
-.ocr-amounts-list li { font-size: 0.85rem; padding: 0.15rem 0; color: #555; }
-.ocr-amounts-list .ocr-highlight { font-weight: 700; color: #1e3c72; }
 
 /* ---- Unit remove button ---- */
 .btn-remove {
