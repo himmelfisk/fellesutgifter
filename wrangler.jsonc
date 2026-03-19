@@ -8,5 +8,10 @@
   },
   "compatibility_flags": [
     "nodejs_compat"
-  ]
+  ],
+  "vars": {
+    "GOOGLE_CLIENT_ID": "10152340554-g0bdlarlbf8tr4ldn31foq79uh0feqn8.apps.googleusercontent.com",
+    "GITHUB_REPO": "himmelfisk/fellesutgifter",
+    "ALLOWED_ORIGIN": "https://himmelfisk.github.io"
+  }
 }
