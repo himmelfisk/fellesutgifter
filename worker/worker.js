@@ -103,15 +103,19 @@ async function checkAdminAccess(email, path, env) {
     if (addresses.length === 0) return true;
 
     // Check each address config for admin membership
+    let anyConfigFound = false;
     for (const addr of addresses) {
       const configRes = await fetch(`https://api.github.com/repos/${repo}/contents/data/${addr.id}.json`, {
         headers: { 'Accept': 'application/vnd.github.v3+json', 'Authorization': `token ${token}`, 'User-Agent': 'FellesutgifterWorker' }
       });
       if (!configRes.ok) continue;
+      anyConfigFound = true;
       const configFile = await configRes.json();
       const config = JSON.parse(atob(configFile.content.replace(/\n/g, '')));
       if (config.admins && config.admins.includes(email)) return true;
     }
+    // If no config files exist (all deleted), treat as fresh setup
+    if (!anyConfigFound) return true;
     return false;
   }
 
@@ -186,7 +190,7 @@ async function githubWrite(path, data, sha, message, env) {
 
 async function githubDelete(path, sha, env) {
   if (!sha) throw new Error('SHA kreves for sletting');
-  const res = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`, {
+  let res = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`, {
     method: 'DELETE',
     headers: {
       'Accept': 'application/vnd.github.v3+json',
@@ -196,6 +200,31 @@ async function githubDelete(path, sha, env) {
     },
     body: JSON.stringify({ message: `Slett ${path}`, sha })
   });
+
+  // Handle 409 SHA conflict by fetching current SHA and retrying
+  if (res.status === 409) {
+    const freshRes = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`, {
+      headers: { 'Accept': 'application/vnd.github.v3+json', 'Authorization': `token ${env.GITHUB_TOKEN}`, 'User-Agent': 'FellesutgifterWorker' }
+    });
+    if (freshRes.ok) {
+      const freshFile = await freshRes.json();
+      res = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'Authorization': `token ${env.GITHUB_TOKEN}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'FellesutgifterWorker'
+        },
+        body: JSON.stringify({ message: `Slett ${path}`, sha: freshFile.sha })
+      });
+    } else if (freshRes.status === 404) {
+      return { deleted: true }; // Already deleted
+    }
+  }
+
+  // File already gone — treat as success
+  if (res.status === 404) return { deleted: true };
 
   if (!res.ok) {
     const errText = await res.text();
