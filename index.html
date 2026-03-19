@@ -59,11 +59,14 @@
         .btn-admin {
             padding: 0.5rem 1.2rem; color: #fff; border: none; border-radius: 8px;
             cursor: pointer; font-size: 0.9rem; font-weight: 600;
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
             box-shadow: 0 3px 10px rgba(0,0,0,0.2); transition: transform 0.15s, box-shadow 0.2s;
         }
         .btn-admin:hover { transform: translateY(-1px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .btn-admin.ole { background: linear-gradient(135deg, #27ae60, #2ecc71); }
         .btn-admin.kenneth { background: linear-gradient(135deg, #7f8c8d, #95a5a6); }
+
+        .address-display { color: rgba(255,255,255,0.7); font-size: 0.9rem; font-weight: 400; }
 
         /* ---- Sync status ---- */
         .sync-status {
@@ -276,7 +279,7 @@
 <!-- Main content -->
 <div id="main-content" style="display:none;">
     <div class="top-bar">
-        <h1>Fellesutgifter</h1>
+        <h1>Fellesutgifter <span id="address-display" class="address-display"></span></h1>
         <div class="top-right">
             <span id="sync-status"></span>
             <button id="admin-btn" class="btn-admin" style="display:none;" onclick="toggleForm()">&#9881;&#65039; Administrer</button>
@@ -288,6 +291,18 @@
     <div class="container">
         <!-- Admin form -->
         <div id="form-card" class="card" style="display:none;">
+            <h2>Innstillinger</h2>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label for="cfg-address">Adresse</label>
+                <input type="text" id="cfg-address" placeholder="F.eks. Eksempelveien 1">
+            </div>
+            <h3>Administratorer (e-post)</h3>
+            <div id="admin-emails-body" style="margin-bottom:1rem;"></div>
+            <div class="btn-row" style="margin-bottom:1.5rem;">
+                <button class="btn-primary" onclick="saveSetup()">Lagre innstillinger</button>
+            </div>
+            <hr style="border:none;border-top:2px solid #e8ecf1;margin-bottom:1.5rem;">
+
             <h2>Legg til / oppdater år</h2>
 
             <div class="form-grid">
@@ -394,10 +409,7 @@
     var GITHUB_REPO = 'himmelfisk/fellesutgifter';
     var GITHUB_DATA_FILE = 'data.json';
 
-    var ADMIN_EMAILS = [
-        'k.a.lorgen@gmail.com',
-        'ole.richard.oien@gmail.com'
-    ];
+    var NUM_ADMIN_EMAILS = 5;
 
     var NUM_EXTRA_ROWS = 10;
 
@@ -443,20 +455,10 @@
 
     function loginAs(email, name) {
         currentUser = { email: email.toLowerCase().trim(), name: name || email };
-        isAdmin = ADMIN_EMAILS.indexOf(currentUser.email) !== -1;
 
         document.getElementById('login-overlay').style.display = 'none';
         document.getElementById('main-content').style.display = 'block';
         document.getElementById('user-info').textContent = currentUser.name;
-
-        var adminBtn = document.getElementById('admin-btn');
-        if (isAdmin) {
-            adminBtn.style.display = 'inline-block';
-            adminBtn.className = 'btn-admin ' +
-                (currentUser.email === 'ole.richard.oien@gmail.com' ? 'ole' : 'kenneth');
-        } else {
-            adminBtn.style.display = 'none';
-        }
 
         loadAllData();
     }
@@ -496,6 +498,7 @@
 
     window.addEventListener('load', function() {
         buildExtraCostRows();
+        buildAdminEmailRows();
         setTimeout(initGoogleSignIn, 500);
         setTimeout(function() { if (!currentUser) initGoogleSignIn(); }, 2000);
     });
@@ -513,6 +516,17 @@
                 + '</tr>';
         }
         tbody.innerHTML = html;
+    }
+
+    function buildAdminEmailRows() {
+        var container = document.getElementById('admin-emails-body');
+        var html = '';
+        for (var i = 0; i < NUM_ADMIN_EMAILS; i++) {
+            html += '<div class="form-group" style="margin-bottom:0.5rem;">'
+                + '<input type="email" id="admin-email-' + i + '" placeholder="e-post@eksempel.no">'
+                + '</div>';
+        }
+        container.innerHTML = html;
     }
 
     /* ================================================
@@ -635,12 +649,14 @@
             appData = Object.assign({}, local, ghData);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
             setSyncStatus('ok', 'Synkronisert');
+            updateAdminState();
             render();
         })
         .catch(function() {
             // Fallback to localStorage
             try { appData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { appData = {}; }
             setSyncStatus('err', 'Offline-modus');
+            updateAdminState();
             render();
         });
     }
@@ -648,6 +664,53 @@
     function saveData(data) {
         appData = data;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function updateAdminState() {
+        if (!currentUser) return;
+
+        var config = appData._config;
+        if (!config || !config.admins || config.admins.length === 0) {
+            isAdmin = true;
+        } else {
+            isAdmin = false;
+            for (var i = 0; i < config.admins.length; i++) {
+                if (config.admins[i] === currentUser.email) {
+                    isAdmin = true;
+                    break;
+                }
+            }
+        }
+
+        var adminBtn = document.getElementById('admin-btn');
+        if (isAdmin) {
+            adminBtn.style.display = 'inline-block';
+            adminBtn.className = 'btn-admin';
+        } else {
+            adminBtn.style.display = 'none';
+            document.getElementById('form-card').style.display = 'none';
+        }
+
+        var addrEl = document.getElementById('address-display');
+        if (config && config.address) {
+            addrEl.textContent = '\u2014 ' + config.address;
+        } else {
+            addrEl.textContent = '';
+        }
+
+        if (config) {
+            document.getElementById('cfg-address').value = config.address || '';
+            var admins = config.admins || [];
+            for (var ai = 0; ai < NUM_ADMIN_EMAILS; ai++) {
+                document.getElementById('admin-email-' + ai).value = (ai < admins.length) ? admins[ai] : '';
+            }
+        } else {
+            document.getElementById('cfg-address').value = '';
+            document.getElementById('admin-email-0').value = currentUser.email;
+            for (var aj = 1; aj < NUM_ADMIN_EMAILS; aj++) {
+                document.getElementById('admin-email-' + aj).value = '';
+            }
+        }
     }
 
     function fmt(n) {
@@ -680,6 +743,34 @@
     function toggleForm() {
         var card = document.getElementById('form-card');
         card.style.display = card.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function saveSetup() {
+        if (!isAdmin) return;
+        var address = document.getElementById('cfg-address').value.trim();
+        if (!address) {
+            alert('Vennligst fyll inn en adresse.');
+            return;
+        }
+
+        var admins = [];
+        for (var i = 0; i < NUM_ADMIN_EMAILS; i++) {
+            var email = document.getElementById('admin-email-' + i).value.trim().toLowerCase();
+            if (email) admins.push(email);
+        }
+        if (admins.length === 0) {
+            alert('Legg til minst \u00e9n administrator-e-post.');
+            return;
+        }
+
+        appData._config = { address: address, admins: admins };
+        saveData(appData);
+        updateAdminState();
+        render();
+
+        writeGitHubData(appData).catch(function(err) {
+            console.error('GitHub save error:', err);
+        });
     }
 
     function saveYear() {
@@ -898,7 +989,7 @@
        ================================================ */
     function render(selectYear) {
         var data = appData;
-        var years = Object.keys(data).sort();
+        var years = Object.keys(data).filter(function(k) { return k !== '_config'; }).sort();
 
         // Filter years based on email access (admins see all)
         if (!isAdmin && currentUser) {
@@ -913,9 +1004,14 @@
         var container = document.getElementById('tabs-container');
 
         if (years.length === 0) {
-            var msg = isAdmin
-                ? 'Ingen data lagt til enn\u00e5. Klikk \u00ab\u2699\ufe0f Administrer\u00bb og fyll inn skjemaet.'
-                : 'Ingen data tilgjengelig enn\u00e5.';
+            var msg;
+            if (!appData._config) {
+                msg = 'Velkommen! Klikk \u00ab\u2699\ufe0f Administrer\u00bb for \u00e5 opprette en adresse.';
+            } else if (isAdmin) {
+                msg = 'Ingen data lagt til enn\u00e5. Klikk \u00ab\u2699\ufe0f Administrer\u00bb og fyll inn skjemaet.';
+            } else {
+                msg = 'Ingen data tilgjengelig enn\u00e5.';
+            }
             container.innerHTML = '<div class="no-data">' + msg + '</div>';
             activeTab = null;
             return;
