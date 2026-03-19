@@ -30,10 +30,11 @@ export default {
         return corsResponse(env, jsonResponse(401, { error: 'Mangler autentisering' }));
       }
 
-      const googleUser = await verifyGoogleToken(idToken, env.GOOGLE_CLIENT_ID);
-      if (!googleUser) {
-        return corsResponse(env, jsonResponse(401, { error: 'Ugyldig Google-token', detail: googleUser }));
+      const tokenResult = await verifyGoogleToken(idToken, env.GOOGLE_CLIENT_ID);
+      if (tokenResult.error) {
+        return corsResponse(env, jsonResponse(401, { error: 'Ugyldig Google-token', detail: tokenResult.error, clientIdSet: !!env.GOOGLE_CLIENT_ID }));
       }
+      const googleUser = tokenResult.user;
 
       // Parse request body
       const body = await request.json();
@@ -68,18 +69,15 @@ async function verifyGoogleToken(idToken, clientId) {
     const res = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken));
     if (!res.ok) {
       const errText = await res.text();
-      console.log('Google tokeninfo failed:', res.status, errText);
-      return null;
+      return { error: 'Google tokeninfo HTTP ' + res.status + ': ' + errText };
     }
     const info = await res.json();
     if (info.aud !== clientId) {
-      console.log('AUD mismatch. Token aud:', info.aud, 'Expected:', clientId);
-      return null;
+      return { error: 'AUD mismatch. Token aud: ' + info.aud + ' Expected: ' + clientId };
     }
-    return { email: info.email.toLowerCase().trim(), name: info.name || info.email };
+    return { user: { email: info.email.toLowerCase().trim(), name: info.name || info.email } };
   } catch (err) {
-    console.log('Token verification error:', err.message);
-    return null;
+    return { error: 'Token verification exception: ' + err.message };
   }
 }
 
