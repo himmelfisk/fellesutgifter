@@ -3,13 +3,27 @@
     {
       "code": "asdasd",
       "name": "asdasdasd",
-      "pct": 22220,
+      "pct": 20,
       "email": "asdasd"
+    },
+    {
+      "code": "ass",
+      "name": "aaasss",
+      "pct": 22,
+      "email": "asd"
+    },
+    {
+      "code": "aaa",
+      "name": "aaa",
+      "pct": 58,
+      "email": "aa"
     }
   ],
   "admins": [
     "k.a.lorgen@gmail.com"
   ],
   "address": "adsad",
-  "years": []
+  "years": [
+    "2026"
+  ]
 }
