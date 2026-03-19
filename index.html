@@ -40,9 +40,12 @@
     </div>
 
     <div class="container">
-        <!-- Admin form -->
-        <div id="form-card" class="card" style="display:none;">
-            <h2>Innstillinger</h2>
+        <!-- Settings view (address, admins, units) -->
+        <div id="settings-card" class="card" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <h2>Innstillinger</h2>
+                <button class="btn-secondary" onclick="closeSettings()">&times; Lukk</button>
+            </div>
             <div class="form-group" style="margin-bottom:1rem;">
                 <label for="cfg-address">Adresse</label>
                 <input type="text" id="cfg-address" placeholder="F.eks. Eksempelveien 1">
@@ -51,27 +54,6 @@
             <div id="admin-emails-body" style="margin-bottom:0.5rem;"></div>
             <button class="btn-secondary" style="margin-bottom:1rem;" onclick="addAdmin()">+ Legg til administrator</button>
 
-            <hr style="border:none;border-top:2px solid #e8ecf1;margin-bottom:1.5rem;">
-
-            <h2 id="year-section-title">Legg til år</h2>
-
-            <div class="form-group" style="max-width:200px;margin-bottom:1rem;">
-                <label for="inp-year">År</label>
-                <input type="number" id="inp-year" min="2000" max="2100">
-            </div>
-
-            <!-- Dynamic costs -->
-            <h3>Kostnader</h3>
-            <p class="upload-desc">Legg til kostnader med beskrivelse, beløp og eventuelt fakturabilde. Fakturaer analyseres automatisk for å finne beløp.</p>
-            <div id="costs-body"></div>
-            <button class="btn-secondary" style="margin-top:0.5rem;" onclick="addCost()">+ Legg til kostnad</button>
-            <input type="file" id="cost-invoice-input" accept="image/*" style="display:none" onchange="handleCostInvoiceFile(this)">
-            <div id="ocr-progress" style="display:none;">
-                <div class="progress-bar"><div class="progress-fill" id="ocr-progress-fill"></div></div>
-                <p id="ocr-status" class="ocr-status">Forbereder...</p>
-            </div>
-
-            <!-- Dynamic units -->
             <h3>Beboer og brøk</h3>
             <table class="tenants-table">
                 <thead><tr><th>Enhet</th><th>Navn</th><th>Andel (%)</th><th>E-post</th><th></th></tr></thead>
@@ -80,10 +62,38 @@
             <button class="btn-secondary" style="margin-top:0.5rem;" onclick="addUnit()">+ Legg til enhet</button>
 
             <div class="btn-row">
-                <button class="btn-secondary" onclick="clearForm()">Tøm skjema</button>
-                <button class="btn-danger" id="btn-delete-year" style="display:none;" onclick="deleteYear()">Slett år</button>
                 <button class="btn-secondary" id="btn-new-address" style="display:none;" onclick="newAddress()">+ Ny adresse</button>
-                <button class="btn-primary" onclick="saveAll()">Lagre</button>
+                <button class="btn-primary" onclick="saveSettings()">Lagre innstillinger</button>
+            </div>
+        </div>
+
+        <!-- Year editor view -->
+        <div id="year-card" class="card" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <h2 id="year-section-title">Legg til år</h2>
+                <button class="btn-secondary" onclick="closeYearEditor()">&times; Lukk</button>
+            </div>
+
+            <div class="form-group" style="max-width:200px;margin-bottom:1rem;">
+                <label for="inp-year">År</label>
+                <input type="number" id="inp-year" min="2000" max="2100">
+            </div>
+
+            <!-- Dynamic costs -->
+            <h3>Kostnader</h3>
+            <p class="upload-desc">Legg til kostnader med beskrivelse, beløp og eventuelt fakturabilde.</p>
+            <div id="costs-body"></div>
+            <button class="btn-secondary" style="margin-top:0.5rem;" onclick="addCost()">+ Legg til kostnad</button>
+            <input type="file" id="cost-invoice-input" accept="image/*" style="display:none" onchange="handleCostInvoiceFile(this)">
+            <div id="ocr-progress" style="display:none;">
+                <div class="progress-bar"><div class="progress-fill" id="ocr-progress-fill"></div></div>
+                <p id="ocr-status" class="ocr-status">Forbereder...</p>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn-secondary" onclick="clearYearForm()">Tøm</button>
+                <button class="btn-danger" id="btn-delete-year" style="display:none;" onclick="deleteYear()">Slett år</button>
+                <button class="btn-primary" onclick="saveYear()">Lagre år</button>
             </div>
         </div>
 

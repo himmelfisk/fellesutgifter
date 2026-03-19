@@ -196,6 +196,8 @@ button:active { transform: scale(0.97); }
     font-weight: 600; cursor: pointer; transition: background 0.2s;
 }
 .tab-btn:hover { background: rgba(255,255,255,0.35); }
+.tab-btn.tab-btn-add { background: rgba(255,255,255,0.1); font-size: 0.85rem; border: 1px dashed rgba(255,255,255,0.4); }
+.tab-btn.tab-btn-add:hover { background: rgba(255,255,255,0.25); }
 .tab-btn.active {
     background: #fff; color: #1e3c72; box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
 }
@@ -313,7 +315,7 @@ tfoot td:first-child { text-align: left; }
 
 @media print {
     body { background: #fff !important; padding: 0 !important; }
-    .top-bar, #form-card, .tab-bar, .btn-pdf, .action-btn,
+    .top-bar, #settings-card, #year-card, .tab-bar, .btn-pdf, .action-btn,
     .btn-logout, .btn-admin, .sync-status, #login-overlay { display: none !important; }
     .container { max-width: 100%; padding: 1rem; }
     .tab-content {
