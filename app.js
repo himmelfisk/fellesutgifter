@@ -89,7 +89,6 @@ function initGoogleSignIn() {
 
 window.addEventListener('load', function() {
     setTimeout(initGoogleSignIn, 500);
-    setTimeout(function() { if (!currentUser) initGoogleSignIn(); }, 2000);
 });
 
 /* ================================================
@@ -140,7 +139,12 @@ function ghWriteFile(path, data) {
         body: JSON.stringify(body)
     })
     .then(function(res) {
-        if (res.status === 401) throw new Error('Innlogging utl\u00f8pt. Logg inn p\u00e5 nytt.');
+        if (res.status === 401) {
+            return res.json().then(function(e) {
+                console.error('Worker 401:', e);
+                throw new Error('Innlogging utl\u00f8pt. Logg inn p\u00e5 nytt.');
+            });
+        }
         if (res.status === 403) throw new Error('Du er ikke autorisert som administrator.');
         if (!res.ok) return res.json().then(function(e) { throw new Error(e.error || 'Lagring feilet'); });
         return res.json();

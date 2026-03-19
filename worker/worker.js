@@ -32,7 +32,7 @@ export default {
 
       const googleUser = await verifyGoogleToken(idToken, env.GOOGLE_CLIENT_ID);
       if (!googleUser) {
-        return corsResponse(env, jsonResponse(401, { error: 'Ugyldig Google-token' }));
+        return corsResponse(env, jsonResponse(401, { error: 'Ugyldig Google-token', detail: googleUser }));
       }
 
       // Parse request body
@@ -64,11 +64,23 @@ export default {
 };
 
 async function verifyGoogleToken(idToken, clientId) {
-  const res = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken));
-  if (!res.ok) return null;
-  const info = await res.json();
-  if (info.aud !== clientId) return null;
-  return { email: info.email.toLowerCase().trim(), name: info.name || info.email };
+  try {
+    const res = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken));
+    if (!res.ok) {
+      const errText = await res.text();
+      console.log('Google tokeninfo failed:', res.status, errText);
+      return null;
+    }
+    const info = await res.json();
+    if (info.aud !== clientId) {
+      console.log('AUD mismatch. Token aud:', info.aud, 'Expected:', clientId);
+      return null;
+    }
+    return { email: info.email.toLowerCase().trim(), name: info.name || info.email };
+  } catch (err) {
+    console.log('Token verification error:', err.message);
+    return null;
+  }
 }
 
 async function checkAdminAccess(email, path, env) {
