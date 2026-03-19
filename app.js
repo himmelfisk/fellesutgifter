@@ -5,7 +5,6 @@ var GOOGLE_CLIENT_ID = '10152340554-g0bdlarlbf8tr4ldn31foq79uh0feqn8.apps.google
 var GITHUB_REPO = 'himmelfisk/fellesutgifter';
 var GITHUB_DATA_DIR = 'data';
 var ADDRESSES_FILE = 'data/addresses.json';
-var NUM_ADMIN_EMAILS = 5;
 var TOKEN_KEY = 'fellesutgifter_gh_token';
 var MAX_IMAGE_PX = 1200;
 var IMAGE_QUALITY = 0.7;
@@ -87,7 +86,6 @@ function initGoogleSignIn() {
 }
 
 window.addEventListener('load', function() {
-    buildAdminEmailRows();
     setTimeout(initGoogleSignIn, 500);
     setTimeout(function() { if (!currentUser) initGoogleSignIn(); }, 2000);
 });
@@ -359,14 +357,7 @@ function updateUI() {
 
     // Populate setup form
     document.getElementById('cfg-address').value = addressConfig.address || '';
-    var admins = addressConfig.admins || [];
-    for (var ai = 0; ai < NUM_ADMIN_EMAILS; ai++) {
-        document.getElementById('admin-email-' + ai).value = (ai < admins.length) ? admins[ai] : '';
-    }
-    if (!admins.length && currentUser) {
-        document.getElementById('admin-email-0').value = currentUser.email;
-    }
-
+    renderAdminRows();
     renderUnitsTable();
 }
 
@@ -396,15 +387,54 @@ function escapeAttr(str) {
 /* ================================================
    DYNAMIC FORM — ADMIN EMAILS
    ================================================ */
-function buildAdminEmailRows() {
+function getAdminList() {
+    var admins = addressConfig.admins || [];
+    if (admins.length === 0 && currentUser) return [currentUser.email];
+    return admins.slice();
+}
+
+function renderAdminRows() {
     var container = document.getElementById('admin-emails-body');
+    var admins = getAdminList();
     var html = '';
-    for (var i = 0; i < NUM_ADMIN_EMAILS; i++) {
-        html += '<div class="form-group" style="margin-bottom:0.5rem;">'
-            + '<input type="email" id="admin-email-' + i + '" placeholder="e-post@eksempel.no">'
+    for (var i = 0; i < admins.length; i++) {
+        html += '<div class="admin-row" data-idx="' + i + '">'
+            + '<input type="email" class="admin-email-input" value="' + escapeAttr(admins[i]) + '" placeholder="e-post@eksempel.no">'
+            + '<button class="btn-remove" onclick="removeAdmin(' + i + ')" title="Fjern">&times;</button>'
             + '</div>';
     }
     container.innerHTML = html;
+}
+
+function addAdmin() {
+    collectAdminsFromForm();
+    var admins = getAdminList();
+    admins.push('');
+    addressConfig.admins = admins;
+    renderAdminRows();
+    // Focus the new empty input
+    var inputs = document.querySelectorAll('.admin-email-input');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function removeAdmin(idx) {
+    collectAdminsFromForm();
+    var admins = getAdminList();
+    if (admins.length <= 1) { alert('Du m\u00e5 ha minst \u00e9n administrator.'); return; }
+    admins.splice(idx, 1);
+    addressConfig.admins = admins;
+    renderAdminRows();
+}
+
+function collectAdminsFromForm() {
+    var inputs = document.querySelectorAll('.admin-email-input');
+    var admins = [];
+    for (var i = 0; i < inputs.length; i++) {
+        var v = inputs[i].value.trim().toLowerCase();
+        if (v) admins.push(v);
+    }
+    addressConfig.admins = admins;
+    return admins;
 }
 
 /* ================================================
@@ -425,7 +455,7 @@ function renderUnitsTable() {
     for (var i = 0; i < units.length; i++) {
         var u = units[i];
         html += '<tr>'
-            + '<td><input type="text" class="unit-code" data-idx="' + i + '" value="' + escapeAttr(u.code) + '" placeholder="Kode"></td>'
+            + '<td><input type="text" class="unit-code" data-idx="' + i + '" value="' + escapeAttr(u.code) + '" placeholder="Enhet"></td>'
             + '<td><input type="text" class="unit-name" data-idx="' + i + '" value="' + escapeAttr(u.name) + '" placeholder="Navn"></td>'
             + '<td><input type="number" class="unit-pct" data-idx="' + i + '" value="' + u.pct + '" step="0.01" min="0" max="100"></td>'
             + '<td><input type="email" class="unit-email" data-idx="' + i + '" value="' + escapeAttr(u.email || '') + '" placeholder="e-post"></td>'
@@ -706,11 +736,7 @@ function saveSetup() {
     var address = document.getElementById('cfg-address').value.trim();
     if (!address) { alert('Vennligst fyll inn en adresse.'); return; }
 
-    var admins = [];
-    for (var i = 0; i < NUM_ADMIN_EMAILS; i++) {
-        var email = document.getElementById('admin-email-' + i).value.trim().toLowerCase();
-        if (email) admins.push(email);
-    }
+    var admins = collectAdminsFromForm();
     if (admins.length === 0) { alert('Legg til minst \u00e9n administrator-e-post.'); return; }
 
     var units = collectUnitsFromForm();

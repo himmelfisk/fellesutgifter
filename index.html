@@ -47,7 +47,8 @@
                 <input type="text" id="cfg-address" placeholder="F.eks. Eksempelveien 1">
             </div>
             <h3>Administratorer (e-post)</h3>
-            <div id="admin-emails-body" style="margin-bottom:1rem;"></div>
+            <div id="admin-emails-body" style="margin-bottom:0.5rem;"></div>
+            <button class="btn-secondary" style="margin-bottom:1rem;" onclick="addAdmin()">+ Legg til administrator</button>
             <div class="btn-row" style="margin-bottom:1.5rem;">
                 <button class="btn-primary" onclick="saveSetup()">Lagre innstillinger</button>
             </div>
@@ -74,7 +75,7 @@
             <!-- Dynamic units -->
             <h3>Beboer og brøk</h3>
             <table class="tenants-table">
-                <thead><tr><th>Kode</th><th>Navn</th><th>Andel (%)</th><th>E-post</th><th></th></tr></thead>
+                <thead><tr><th>Enhet</th><th>Navn</th><th>Andel (%)</th><th>E-post</th><th></th></tr></thead>
                 <tbody id="units-body"></tbody>
             </table>
             <button class="btn-secondary" style="margin-top:0.5rem;" onclick="addUnit()">+ Legg til enhet</button>

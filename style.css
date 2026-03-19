@@ -288,6 +288,19 @@ tfoot td:first-child { text-align: left; }
 }
 .btn-remove:hover { background: #c0392b; }
 
+/* ---- Admin rows ---- */
+.admin-row {
+    display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem;
+}
+.admin-row input {
+    flex: 1; padding: 0.5rem 0.8rem; border: 2px solid #dde2e8;
+    border-radius: 8px; font-size: 0.9rem;
+}
+.admin-row input:focus {
+    outline: none; border-color: #2a5298;
+    box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.15);
+}
+
 /* ---- Address picker ---- */
 #address-select {
     padding: 0.35rem 0.6rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3);
