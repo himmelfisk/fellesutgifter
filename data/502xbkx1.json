@@ -1,0 +1,21 @@
+{
+  "units": [
+    {
+      "code": "K0101",
+      "name": "Tatata",
+      "pct": 50,
+      "email": "asd"
+    },
+    {
+      "code": "H0101",
+      "name": "Kenneth",
+      "pct": 50,
+      "email": "sad"
+    }
+  ],
+  "admins": [
+    "k.a.lorgen@gmail.com"
+  ],
+  "address": "Stykkjevegen 31",
+  "years": []
+}
