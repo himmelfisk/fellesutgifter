@@ -58,6 +58,21 @@ body {
 .btn-admin.ole { background: linear-gradient(135deg, #27ae60, #2ecc71); }
 .btn-admin.kenneth { background: linear-gradient(135deg, #7f8c8d, #95a5a6); }
 
+.btn-help {
+    padding: 0.5rem 1.2rem; color: #fff; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 0.9rem; font-weight: 600;
+    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+    transition: background 0.2s;
+}
+.btn-help:hover { background: rgba(255,255,255,0.25); }
+
+/* ---- Help section ---- */
+.help-section { line-height: 1.7; color: #444; }
+.help-section p { margin-bottom: 1rem; }
+.help-section h3 { color: #1e3c72; margin: 1.5rem 0 0.6rem; font-size: 1.1rem; }
+.help-section ol, .help-section ul { margin: 0 0 1rem 1.5rem; }
+.help-section li { margin-bottom: 0.4rem; }
+
 .address-display { color: rgba(255,255,255,0.7); font-size: 0.9rem; font-weight: 400; }
 
 /* ---- Sync status ---- */
@@ -141,7 +156,7 @@ body {
 .tenants-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
 .tenants-table th {
     text-align: left; padding: 0.4rem 0.5rem; font-size: 0.85rem;
-    color: #555; border-bottom: 2px solid #e8ecf1;
+    color: #555; background: transparent; border-bottom: 2px solid #e8ecf1;
 }
 .tenants-table td { padding: 0.35rem 0.5rem; }
 .tenants-table .code {
@@ -315,8 +330,8 @@ tfoot td:first-child { text-align: left; }
 
 @media print {
     body { background: #fff !important; padding: 0 !important; }
-    .top-bar, #settings-card, #year-card, .tab-bar, .btn-pdf, .action-btn,
-    .btn-logout, .btn-admin, .sync-status, #login-overlay { display: none !important; }
+    .top-bar, #settings-card, #year-card, #help-card, .tab-bar, .btn-pdf, .action-btn,
+    .btn-logout, .btn-admin, .btn-help, .sync-status, #login-overlay { display: none !important; }
     .container { max-width: 100%; padding: 1rem; }
     .tab-content {
         box-shadow: none !important; border-radius: 0 !important;

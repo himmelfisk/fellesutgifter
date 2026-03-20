@@ -33,6 +33,7 @@
         <div class="top-right">
             <span id="address-picker" style="display:none;"></span>
             <span id="sync-status"></span>
+            <button id="help-btn" class="btn-help" onclick="toggleHelp()">&#10067; Hjelp</button>
             <button id="admin-btn" class="btn-admin" style="display:none;" onclick="toggleForm()">&#9881;&#65039; Administrer</button>
             <span id="user-info" class="user-info"></span>
             <button class="btn-logout" onclick="logout()">Logg ut</button>
@@ -95,6 +96,15 @@
                 <button class="btn-danger" id="btn-delete-year" style="display:none;" onclick="deleteYear()">Slett år</button>
                 <button class="btn-primary" onclick="saveYear()">Lagre år</button>
             </div>
+        </div>
+
+        <!-- Help section -->
+        <div id="help-card" class="card" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <h2>&#128712; Om Fellesutgifter</h2>
+                <button class="btn-secondary" onclick="closeHelp()">&times; Lukk</button>
+            </div>
+            <div id="help-content"></div>
         </div>
 
         <!-- Data display -->

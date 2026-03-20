@@ -1111,8 +1111,12 @@ function render() {
 
     if (years.length === 0) {
         var msg;
+        var useCard = false;
         if (allAddresses.length === 0) {
-            msg = 'Velkommen! Klikk \u00ab\u2699\ufe0f Administrer\u00bb for \u00e5 opprette en adresse.';
+            msg = '<h2>Velkommen til Fellesutgifter!</h2>'
+                + '<p style="margin-bottom:1.5rem;">Klikk «⚙️ Administrer» i topplinjen for å opprette din første adresse.</p>'
+                + getHelpHtml();
+            useCard = true;
         } else if (!addressConfig.admins) {
             msg = 'Laster...';
         } else if (isAdmin) {
@@ -1121,7 +1125,11 @@ function render() {
         } else {
             msg = 'Ingen data tilgjengelig for deg enn\u00e5.';
         }
-        container.innerHTML = '<div class="no-data">' + msg + '</div>';
+        if (useCard) {
+            container.innerHTML = '<div class="card">' + msg + '</div>';
+        } else {
+            container.innerHTML = '<div class="no-data">' + msg + '</div>';
+        }
         activeTab = null;
         return;
     }
@@ -1247,4 +1255,69 @@ function switchTab(year) {
     } else {
         render();
     }
+}
+
+/* ================================================
+   HELP / BRUKSANVISNING
+   ================================================ */
+function getHelpHtml() {
+    return '<div class="help-section">'
+        + '<p><strong>Fellesutgifter</strong> er en app for å beregne og fordele felles bokostnader mellom beboere i en bygård eller et sameie. '
+        + 'Appen lar deg legge inn årlige kostnader (forsikring, kommunale avgifter, osv.) og fordeler dem automatisk basert på eierandel.</p>'
+
+        + '<h3>Kom i gang</h3>'
+        + '<ol>'
+        + '<li><strong>Opprett adresse:</strong> Klikk «⚙️ Administrer» i topplinjen for å opprette din første adresse.</li>'
+        + '<li><strong>Legg til administratorer:</strong> Skriv inn e-postadressen(e) til de som skal kunne redigere data. Kun administratorer kan endre innstillinger og kostnader.</li>'
+        + '<li><strong>Legg til enheter/beboere:</strong> Opprett en rad per boenhet med enhetskode (f.eks. «H0101»), navn på beboer, eierandel i prosent, og eventuelt e-postadresse.</li>'
+        + '<li><strong>Lagre innstillinger</strong> for å fullføre oppsettet.</li>'
+        + '</ol>'
+
+        + '<h3>Legge til kostnader</h3>'
+        + '<ol>'
+        + '<li>Klikk «+ Legg til år» i fanelinjen (eller i administrasjonspanelet).</li>'
+        + '<li>Velg årstall og legg til kostnader med beskrivelse og beløp.</li>'
+        + '<li><strong>Fakturabilde:</strong> Klikk 📎-knappen for å laste opp et bilde av fakturaen. Appen vil forsøke å lese beløpet automatisk (OCR).</li>'
+        + '<li>Klikk «Lagre år» for å lagre.</li>'
+        + '</ol>'
+
+        + '<h3>Se kostnadsfordeling</h3>'
+        + '<p>Etter at kostnader er lagt inn, vises en oversikt med:</p>'
+        + '<ul>'
+        + '<li><strong>Sammendrag:</strong> Totale kostnader per kategori.</li>'
+        + '<li><strong>Fordelingstabell:</strong> Månedlige og årlige kostnader per boenhet, basert på eierandel.</li>'
+        + '<li><strong>PDF-eksport:</strong> Klikk «📄 Eksporter til PDF» for å skrive ut eller lagre en utskriftsvennlig oversikt.</li>'
+        + '</ul>'
+
+        + '<h3>Flere adresser</h3>'
+        + '<p>Administratorer kan opprette flere adresser via «+ Ny adresse»-knappen i innstillingene. Bytt mellom adresser med nedtrekksmenyen i topplinjen.</p>'
+
+        + '<h3>Tilgang</h3>'
+        + '<ul>'
+        + '<li><strong>Administratorer</strong> kan redigere alle innstillinger og kostnader.</li>'
+        + '<li><strong>Beboere</strong> som er registrert med e-post kan logge inn og se kostnadsfordelingen for sin adresse (kun lesetilgang).</li>'
+        + '</ul>'
+        + '</div>';
+}
+
+function toggleHelp() {
+    var helpCard = document.getElementById('help-card');
+    var settingsCard = document.getElementById('settings-card');
+    var yearCard = document.getElementById('year-card');
+    var tabs = document.getElementById('tabs-container');
+    var show = helpCard.style.display === 'none';
+    if (show) {
+        document.getElementById('help-content').innerHTML = getHelpHtml();
+        helpCard.style.display = 'block';
+        settingsCard.style.display = 'none';
+        yearCard.style.display = 'none';
+        tabs.style.display = 'none';
+    } else {
+        closeHelp();
+    }
+}
+
+function closeHelp() {
+    document.getElementById('help-card').style.display = 'none';
+    document.getElementById('tabs-container').style.display = 'block';
 }
