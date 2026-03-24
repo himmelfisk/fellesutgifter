@@ -1,0 +1,14 @@
+{
+  "costs": [
+    {
+      "desc": "Peis",
+      "amount": 2000,
+      "invoice": null
+    },
+    {
+      "desc": "Forsikring",
+      "amount": 200000,
+      "invoice": null
+    }
+  ]
+}
