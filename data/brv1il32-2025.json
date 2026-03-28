@@ -9,6 +9,11 @@
       "desc": "Forsikring",
       "amount": 200000,
       "invoice": null
+    },
+    {
+      "desc": "Øl",
+      "amount": 25000,
+      "invoice": null
     }
   ]
 }
