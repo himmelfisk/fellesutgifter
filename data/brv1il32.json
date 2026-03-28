@@ -5,6 +5,18 @@
       "name": "Kenneth Lorgen",
       "pct": 10,
       "email": "asdasd"
+    },
+    {
+      "code": "H0101",
+      "name": "AAAA",
+      "pct": 25,
+      "email": "a"
+    },
+    {
+      "code": "H0102",
+      "name": "BBBB",
+      "pct": 65,
+      "email": "b"
     }
   ],
   "admins": [
